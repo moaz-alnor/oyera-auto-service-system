@@ -1,0 +1,83 @@
+/**
+ * Shared design tokens for the Oyera Auto Service interface.
+ *
+ * Components should use these variables rather than introducing isolated
+ * colours, spacing values, shadows, or border radii.
+ */
+
+:root {
+    /* Brand colours */
+    --color-primary-50: #eef4ff;
+    --color-primary-100: #d9e6ff;
+    --color-primary-600: #2457c5;
+    --color-primary-700: #1d469f;
+    --color-primary-800: #193b84;
+
+    /* Neutral colours */
+    --color-white: #ffffff;
+    --color-gray-50: #f8fafc;
+    --color-gray-100: #f1f5f9;
+    --color-gray-200: #e2e8f0;
+    --color-gray-300: #cbd5e1;
+    --color-gray-500: #64748b;
+    --color-gray-600: #475569;
+    --color-gray-700: #334155;
+    --color-gray-800: #1e293b;
+    --color-gray-900: #0f172a;
+
+    /* Semantic colours */
+    --color-success: #16794b;
+    --color-warning: #a15c00;
+    --color-danger: #b42318;
+    --color-info: #175cd3;
+
+    /* Typography */
+    --font-family-sans:
+        Inter,
+        ui-sans-serif,
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+
+    --font-size-xs: 0.75rem;
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.125rem;
+    --font-size-xl: 1.25rem;
+    --font-size-2xl: 1.5rem;
+    --font-size-3xl: 1.875rem;
+
+    /* Spacing */
+    --space-1: 0.25rem;
+    --space-2: 0.5rem;
+    --space-3: 0.75rem;
+    --space-4: 1rem;
+    --space-5: 1.25rem;
+    --space-6: 1.5rem;
+    --space-8: 2rem;
+    --space-10: 2.5rem;
+    --space-12: 3rem;
+
+    /* Shape and elevation */
+    --radius-sm: 0.375rem;
+    --radius-md: 0.625rem;
+    --radius-lg: 0.875rem;
+
+    --shadow-sm:
+        0 1px 2px rgb(15 23 42 / 6%),
+        0 1px 3px rgb(15 23 42 / 10%);
+
+    --shadow-md:
+        0 4px 6px rgb(15 23 42 / 6%),
+        0 10px 15px rgb(15 23 42 / 8%);
+
+    /* Layout */
+    --sidebar-width: 16rem;
+    --header-height: 4rem;
+    --content-max-width: 90rem;
+
+    /* Focus */
+    --focus-ring: 0 0 0 3px rgb(36 87 197 / 25%);
+}

@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+
+{% block body_class %}
+    public-page
+{% endblock %}
+
+{% block body %}
+    <div class="public-layout">
+        <main
+            id="main-content"
+            class="public-layout__content"
+        >
+            <div class="public-layout__panel">
+                {% include "includes/messages.html" %}
+
+                {% block public_content %}
+                {% endblock %}
+            </div>
+        </main>
+    </div>
+{% endblock %}

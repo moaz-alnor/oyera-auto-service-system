@@ -1,19 +1,57 @@
-{% extends "base.html" %}
+{% extends "layouts/app.html" %}
 
 {% block title %}
     Dashboard | Oyera Auto Service
 {% endblock %}
 
-{% block content %}
-    <section>
-        <h1>Dashboard</h1>
-
-        <p>
-            Welcome, {{ request.user }}.
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Operations overview
         </p>
 
-        <p>
-            The operational dashboard modules will be added gradually.
+        <h1>
+            Dashboard
+        </h1>
+
+        <p class="page-header__description">
+            Welcome, {{ request.user }}. Operational information will
+            appear here as each business module is implemented.
         </p>
+    </header>
+
+    <section
+        class="dashboard-grid"
+        aria-label="Operational summary"
+    >
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Vehicles received today
+            </span>
+
+            <strong class="metric-card__value">
+                0
+            </strong>
+        </article>
+
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Open job cards
+            </span>
+
+            <strong class="metric-card__value">
+                0
+            </strong>
+        </article>
+
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Awaiting payment
+            </span>
+
+            <strong class="metric-card__value">
+                0
+            </strong>
+        </article>
     </section>
 {% endblock %}

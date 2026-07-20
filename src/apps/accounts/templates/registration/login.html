@@ -1,49 +1,75 @@
-{% extends "base.html" %}
+{% extends "layouts/public.html" %}
 
 {% block title %}
     Employee Login | Oyera Auto Service
 {% endblock %}
 
-{% block content %}
-    <section>
-        <h1>Employee Login</h1>
+{% block public_content %}
+    <section class="card">
+        <header class="card__header">
+            <p class="page-header__eyebrow">
+                Oyera Auto Service Bay
+            </p>
 
-        <p>
-            Sign in using your assigned employee account.
-        </p>
+            <h1 class="card__title">
+                Employee login
+            </h1>
+
+            <p class="card__description">
+                Sign in using your assigned employee account.
+            </p>
+        </header>
 
         {% if form.non_field_errors %}
-            <div role="alert">
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
                 {% for error in form.non_field_errors %}
-                    <p>{{ error }}</p>
+                    <p class="form-error">
+                        {{ error }}
+                    </p>
                 {% endfor %}
             </div>
         {% endif %}
 
-        <form method="post">
+        <form
+            class="form"
+            method="post"
+        >
             {% csrf_token %}
 
-            <div>
-                <label for="{{ form.username.id_for_label }}">
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="{{ form.username.id_for_label }}"
+                >
                     {{ form.username.label }}
                 </label>
 
                 {{ form.username }}
 
                 {% for error in form.username.errors %}
-                    <p>{{ error }}</p>
+                    <p class="form-error">
+                        {{ error }}
+                    </p>
                 {% endfor %}
             </div>
 
-            <div>
-                <label for="{{ form.password.id_for_label }}">
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="{{ form.password.id_for_label }}"
+                >
                     {{ form.password.label }}
                 </label>
 
                 {{ form.password }}
 
                 {% for error in form.password.errors %}
-                    <p>{{ error }}</p>
+                    <p class="form-error">
+                        {{ error }}
+                    </p>
                 {% endfor %}
             </div>
 
@@ -55,7 +81,10 @@
                 >
             {% endif %}
 
-            <button type="submit">
+            <button
+                class="button button--primary"
+                type="submit"
+            >
                 Sign in
             </button>
         </form>

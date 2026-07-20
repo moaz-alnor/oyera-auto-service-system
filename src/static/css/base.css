@@ -1,0 +1,87 @@
+/**
+ * Global element styles and browser normalization.
+ */
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    min-height: 100%;
+    font-family: var(--font-family-sans);
+    color: var(--color-gray-900);
+    background: var(--color-gray-50);
+}
+
+body {
+    min-height: 100vh;
+    margin: 0;
+    font-size: var(--font-size-base);
+    line-height: 1.5;
+}
+
+a {
+    color: var(--color-primary-700);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button,
+a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+img {
+    display: block;
+    max-width: 100%;
+}
+
+h1,
+h2,
+h3,
+p {
+    margin-top: 0;
+}
+
+h1 {
+    margin-bottom: var(--space-4);
+    font-size: var(--font-size-3xl);
+    line-height: 1.2;
+}
+
+h2 {
+    font-size: var(--font-size-2xl);
+}
+
+:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+}
+
+.skip-link {
+    position: fixed;
+    top: var(--space-2);
+    left: var(--space-2);
+    z-index: 100;
+    padding: var(--space-2) var(--space-4);
+    color: var(--color-white);
+    background: var(--color-gray-900);
+    border-radius: var(--radius-sm);
+    transform: translateY(-200%);
+}
+
+.skip-link:focus {
+    transform: translateY(0);
+}

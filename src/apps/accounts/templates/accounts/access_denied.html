@@ -1,19 +1,28 @@
-{% extends "base.html" %}
+{% extends "layouts/app.html" %}
 
 {% block title %}
     Access Denied | Oyera Auto Service
 {% endblock %}
 
-{% block content %}
-    <section>
-        <h1>Access Denied</h1>
-
-        <p>
-            You do not have permission to perform this action.
+{% block app_content %}
+    <section class="card">
+        <p class="page-header__eyebrow">
+            Authorization
         </p>
 
-        <a href="{% url 'core:dashboard' %}">
-            Return to the dashboard
+        <h1>
+            Access denied
+        </h1>
+
+        <p>
+            Your account does not have permission to perform this action.
+        </p>
+
+        <a
+            class="button button--primary"
+            href="{% url 'core:dashboard' %}"
+        >
+            Return to dashboard
         </a>
     </section>
 {% endblock %}

@@ -1,0 +1,87 @@
+/**
+ * Page-level layouts for authenticated and public pages.
+ */
+
+/* Public layout */
+
+.public-layout {
+    display: grid;
+    min-height: 100vh;
+    grid-template-columns: minmax(0, 1fr);
+    background:
+        linear-gradient(
+            135deg,
+            var(--color-primary-50),
+            var(--color-gray-50)
+        );
+}
+
+.public-layout__content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-6);
+}
+
+.public-layout__panel {
+    width: 100%;
+    max-width: 30rem;
+}
+
+/* Authenticated application layout */
+
+.app-layout {
+    display: grid;
+    min-height: 100vh;
+    grid-template:
+        "header header" var(--header-height)
+        "sidebar main" 1fr
+        / var(--sidebar-width) minmax(0, 1fr);
+}
+
+.app-header {
+    grid-area: header;
+    position: sticky;
+    top: 0;
+    z-index: 20;
+}
+
+.app-sidebar {
+    grid-area: sidebar;
+    min-height: calc(100vh - var(--header-height));
+}
+
+.app-main {
+    grid-area: main;
+    min-width: 0;
+    padding: var(--space-8);
+}
+
+.app-main__inner {
+    width: 100%;
+    max-width: var(--content-max-width);
+    margin-inline: auto;
+}
+
+@media (max-width: 48rem) {
+    .app-layout {
+        grid-template:
+            "header" auto
+            "sidebar" auto
+            "main" 1fr
+            / minmax(0, 1fr);
+    }
+
+    .app-header,
+    .app-sidebar {
+        position: static;
+    }
+
+    .app-sidebar {
+        min-height: auto;
+    }
+
+    .app-main {
+        padding: var(--space-5);
+    }
+}
