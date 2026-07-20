@@ -66,3 +66,19 @@ def normalize_email_address(value: str) -> str:
     """Normalize an optional email address."""
 
     return value.strip().lower()
+
+
+def normalize_phone_search(value: str) -> str:
+    """Return digits that can be used in a phone-number search.
+
+    Unlike customer registration validation, search input may contain
+    only part of a phone number.
+
+    Args:
+        value: Full or partial phone-number search input.
+
+    Returns:
+        Digits extracted from the supplied search value.
+    """
+
+    return _NON_DIGIT_PATTERN.sub("", value)
