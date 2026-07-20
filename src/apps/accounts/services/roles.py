@@ -6,7 +6,7 @@ from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import ImproperlyConfigured
 from django.db import transaction
 
-from apps.accounts.constants import PermissionName, RoleName
+from apps.accounts.constants import RoleName
 from apps.accounts.policy import ROLE_PERMISSION_POLICY
 
 
@@ -19,7 +19,7 @@ class RoleSeedResult:
 
 
 def _resolve_permissions(
-    permission_names: frozenset[PermissionName],
+    permission_names: frozenset[str],
 ) -> tuple[Permission, ...]:
     """Resolve permission identifiers into database records.
 
@@ -37,7 +37,7 @@ def _resolve_permissions(
     permissions: list[Permission] = []
 
     for permission_name in permission_names:
-        app_label, codename = permission_name.value.split(
+        app_label, codename = permission_name.split(
             ".",
             maxsplit=1,
         )
@@ -50,7 +50,7 @@ def _resolve_permissions(
         except Permission.DoesNotExist as exc:
             raise ImproperlyConfigured(
                 "The authorization policy references a missing "
-                f"permission: {permission_name.value}. Run migrations "
+                f"permission: {permission_name}. Run migrations "
                 "before synchronizing roles."
             ) from exc
 
