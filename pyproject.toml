@@ -1,0 +1,29 @@
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+pythonpath = ["src"]
+testpaths = ["src", "tests"]
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+addopts = "-ra -q"
+
+[tool.ruff]
+line-length = 88
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # Python style errors
+    "F",   # Logical errors and unused imports
+    "I",   # Import ordering
+    "B",   # Common Python bugs
+    "UP",  # Modern Python syntax
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint.per-file-ignores]
+"src/config/settings/development.py" = ["F403", "F405"]
+"src/config/settings/test.py" = ["F403", "F405"]
+"src/config/settings/production.py" = ["F403", "F405"]
