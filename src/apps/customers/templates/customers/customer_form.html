@@ -1,0 +1,132 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ page_title }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Customer management
+        </p>
+
+        <h1>{{ page_title }}</h1>
+
+        <p class="page-header__description">
+            {{ page_description }}
+        </p></header>
+
+    {% if duplicate_confirmation_required %}
+        <section class="alert alert--error">
+            <h2>Possible duplicate customer</h2>
+
+            <p>
+                Review the existing records before creating
+                another customer.
+            </p>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Number</th>
+                            <th scope="col">Name</th>
+                            <th scope="col">Phone</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for customer in possible_duplicates %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'customers:detail' customer.pk %}"
+                                        target="_blank"
+                                        rel="noopener"
+                                    >
+                                        {{ customer.customer_number }}
+                                    </a>
+                                </td>
+
+                                <td>{{ customer.name }}</td>
+                                <td>{{ customer.phone_number }}</td>
+
+                                <td>
+                                    {% if customer.is_active %}
+                                        Active
+                                    {% else %}
+                                        Inactive
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="card">
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+        >
+            {% csrf_token %}
+
+            {% if duplicate_confirmation_required %}
+                <input
+                    type="hidden"
+                    name="confirm_duplicate"
+                    value="true"
+                >
+            {% else %}
+                {{ form.confirm_duplicate }}
+            {% endif %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{{ cancel_url }}">
+                    Cancel</a>
+
+                <button
+                    class="button button--primary"
+                    type="submit">
+                    {% if duplicate_confirmation_required %}
+                        Confirm and save
+                    {% else %}
+                        {{ submit_label }}
+                    {% endif %}</button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

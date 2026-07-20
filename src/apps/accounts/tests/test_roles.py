@@ -48,9 +48,13 @@ def test_administrator_receives_account_permissions() -> None:
 
     stored_permissions = {
         f"{app_label}.{codename}"
-        for app_label, codename in administrator.permissions.values_list(
-            "content_type__app_label",
-            "codename",
+        for app_label, codename in (
+            administrator.permissions.filter(
+                content_type__app_label="accounts"
+            ).values_list(
+                "content_type__app_label",
+                "codename",
+            )
         )
     }
 

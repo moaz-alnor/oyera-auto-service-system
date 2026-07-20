@@ -19,6 +19,7 @@ INSTALLED_APPS = [
     # Project applications.
     "apps.core.apps.CoreConfig",
     "apps.accounts.apps.AccountsConfig",
+    "apps.customers.apps.CustomersConfig",
 ]
 
 # Use the project-specific employee account model.

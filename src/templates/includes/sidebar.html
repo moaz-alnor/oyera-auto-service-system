@@ -8,12 +8,28 @@
         </p>
 
         <a
-            class="sidebar-nav__link sidebar-nav__link--active"
+            class="sidebar-nav__link
+                {% if request.resolver_match.app_name == 'core' %}
+                    sidebar-nav__link--active
+                {% endif %}
+            "
             href="{% url 'core:dashboard' %}"
-            aria-current="page"
         >
             Dashboard
         </a>
+
+        {% if perms.customers.view_customer %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'customers' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'customers:list' %}"
+            >
+                Customers
+            </a>
+        {% endif %}
 
         {% if request.user.is_staff %}
             <p class="sidebar-nav__label">
