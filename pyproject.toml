@@ -8,6 +8,8 @@ addopts = "-ra -q"
 [tool.ruff]
 line-length = 88
 src = ["src"]
+extend-exclude = ["**/migrations/*.py"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = [
