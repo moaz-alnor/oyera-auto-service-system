@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Employee Login | Oyera Auto Service
+{% endblock %}
+
+{% block content %}
+    <section>
+        <h1>Employee Login</h1>
+
+        <p>
+            Sign in using your assigned employee account.
+        </p>
+
+        {% if form.non_field_errors %}
+            <div role="alert">
+                {% for error in form.non_field_errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            <div>
+                <label for="{{ form.username.id_for_label }}">
+                    {{ form.username.label }}
+                </label>
+
+                {{ form.username }}
+
+                {% for error in form.username.errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div>
+                <label for="{{ form.password.id_for_label }}">
+                    {{ form.password.label }}
+                </label>
+
+                {{ form.password }}
+
+                {% for error in form.password.errors %}
+                    <p>{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            {% if next %}
+                <input
+                    type="hidden"
+                    name="next"
+                    value="{{ next }}"
+                >
+            {% endif %}
+
+            <button type="submit">
+                Sign in
+            </button>
+        </form>
+    </section>
+{% endblock %}

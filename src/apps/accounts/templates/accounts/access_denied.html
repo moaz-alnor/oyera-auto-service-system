@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+
+{% block title %}
+    Access Denied | Oyera Auto Service
+{% endblock %}
+
+{% block content %}
+    <section>
+        <h1>Access Denied</h1>
+
+        <p>
+            You do not have permission to perform this action.
+        </p>
+
+        <a href="{% url 'core:dashboard' %}">
+            Return to the dashboard
+        </a>
+    </section>
+{% endblock %}

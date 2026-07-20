@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1"
+    >
+
+    <title>
+        {% block title %}
+            Oyera Auto Service
+        {% endblock %}
+    </title>
+</head>
+
+<body>
+    <header>
+        <nav aria-label="Main navigation">
+            <a href="{% url 'core:dashboard' %}">
+                Oyera Auto Service
+            </a>
+
+            {% if request.user.is_authenticated %}
+                <span>
+                    Signed in as {{ request.user }}
+                </span>
+
+                <form
+                    method="post"
+                    action="{% url 'accounts:logout' %}"
+                >
+                    {% csrf_token %}
+                    <button type="submit">
+                        Log out
+                    </button>
+                </form>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main>
+        {% if messages %}
+            <section aria-label="System messages">
+                {% for message in messages %}
+                    <p>{{ message }}</p>
+                {% endfor %}
+            </section>
+        {% endif %}
+
+        {% block content %}
+        {% endblock %}
+    </main>
+</body>
+</html>
