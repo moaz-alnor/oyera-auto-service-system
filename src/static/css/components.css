@@ -296,3 +296,136 @@
         display: none;
     }
 }
+
+/* Page actions */
+
+.page-header--actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--space-5);
+}
+
+/* Search controls */
+
+.search-toolbar {
+    display: flex;
+    align-items: end;
+    gap: var(--space-4);
+}
+
+.search-toolbar__field {
+    flex: 1;
+}
+
+.checkbox-field {
+    display: inline-flex;
+    min-height: 2.75rem;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+/* Tables */
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+    padding: var(--space-3) var(--space-4);
+    text-align: left;
+    border-bottom: 1px solid var(--color-gray-200);
+}
+
+.data-table th {
+    font-size: var(--font-size-xs);
+    color: var(--color-gray-600);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.data-table tbody tr:hover {
+    background: var(--color-gray-50);
+}
+
+/* Status */
+
+.status-badge {
+    display: inline-flex;
+    padding: var(--space-1) var(--space-2);
+    font-size: var(--font-size-xs);
+    font-weight: 700;
+    border-radius: 999px;
+}
+
+.status-badge--active {
+    color: var(--color-success);
+    background: #ecfdf3;
+}
+
+.status-badge--inactive {
+    color: var(--color-gray-600);
+    background: var(--color-gray-100);
+}
+
+/* Details */
+
+.details-grid {
+    display: grid;
+    gap: var(--space-5);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin: 0;
+}
+
+.details-grid dt {
+    margin-bottom: var(--space-1);
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-gray-600);
+}
+
+.details-grid dd {
+    margin: 0;
+}
+
+.details-section {
+    margin-top: var(--space-8);
+    padding-top: var(--space-6);
+    border-top: 1px solid var(--color-gray-200);
+}
+
+.form-actions,
+.pagination {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--space-3);
+}
+
+.empty-state {
+    padding: var(--space-10);
+    text-align: center;
+}
+
+@media (max-width: 48rem) {
+    .page-header--actions,
+    .search-toolbar {
+        align-items: stretch;
+        flex-direction: column;
+    }
+
+    .details-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+
+    .form-actions {
+        align-items: stretch;
+        flex-direction: column-reverse;
+    }
+}

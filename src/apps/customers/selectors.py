@@ -101,3 +101,25 @@ def find_possible_customer_duplicates(
         )
         .distinct()
     )
+
+
+def get_customer_by_id(
+    *,
+    customer_id: int,
+) -> Customer:
+    """Return one customer with related employee information.
+
+    Args:
+        customer_id: Primary key of the requested customer.
+
+    Returns:
+        The matching customer.
+
+    Raises:
+        Customer.DoesNotExist: If the customer does not exist.
+    """
+
+    return Customer.objects.select_related(
+        "created_by",
+        "updated_by",
+    ).get(pk=customer_id)

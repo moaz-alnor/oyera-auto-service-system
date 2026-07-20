@@ -1,0 +1,75 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ customer.customer_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ customer.customer_number }}
+            </p>
+
+            <h1>{{ customer.name }}</h1>
+
+            <p class="page-header__description">
+                {{ customer.get_customer_type_display }} customer
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'customers:list' %}"
+        >
+            Back to customers
+        </a>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    {% if customer.is_active %}
+                        Active
+                    {% else %}
+                        Inactive
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Phone number</dt>
+                <dd>{{ customer.phone_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Email</dt>
+                <dd>{{ customer.email|default:"Not provided" }}</dd>
+            </div>
+
+            <div>
+                <dt>Address</dt>
+                <dd>{{ customer.address|default:"Not provided" }}</dd>
+            </div>
+
+            <div>
+                <dt>Registered</dt>
+                <dd>{{ customer.created_at|date:"d M Y, H:i" }}</dd>
+            </div>
+
+            <div>
+                <dt>Registered by</dt>
+                <dd>{{ customer.created_by }}</dd>
+            </div>
+        </dl>
+
+        {% if customer.notes %}
+            <div class="details-section">
+                <h2>Notes</h2>
+                <p>{{ customer.notes|linebreaksbr }}</p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
