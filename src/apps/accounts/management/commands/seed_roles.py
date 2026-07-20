@@ -1,4 +1,4 @@
-"""Create the default employee roles required by the application."""
+"""Synchronize the default employee roles and permissions."""
 
 from django.core.management.base import BaseCommand
 
@@ -6,12 +6,14 @@ from apps.accounts.services.roles import ensure_default_roles
 
 
 class Command(BaseCommand):
-    """Create missing default roles without duplicating existing roles."""
+    """Synchronize default roles without creating duplicates."""
 
-    help = "Create the default Oyera Auto Service employee roles."
+    help = (
+        "Create the default Oyera Auto Service roles and synchronize their permissions."
+    )
 
     def handle(self, *args: object, **options: object) -> None:
-        """Execute the role-seeding operation."""
+        """Execute role and permission synchronization."""
 
         result = ensure_default_roles()
 
@@ -21,4 +23,6 @@ class Command(BaseCommand):
         for role_name in result.existing_roles:
             self.stdout.write(f"Role already exists: {role_name}")
 
-        self.stdout.write(self.style.SUCCESS("Default role configuration is complete."))
+        self.stdout.write(
+            self.style.SUCCESS("Default role and permission configuration is complete.")
+        )

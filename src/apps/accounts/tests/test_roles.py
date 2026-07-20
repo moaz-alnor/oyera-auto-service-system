@@ -36,3 +36,39 @@ def test_role_creation_is_idempotent() -> None:
     assert second_result.created_roles == ()
     assert set(second_result.existing_roles) == {role.value for role in RoleName}
     assert Group.objects.count() == len(RoleName)
+
+
+@pytest.mark.django_db
+def test_administrator_receives_account_permissions() -> None:
+    """Assign approved account-management permissions to administrators."""
+
+    ensure_default_roles()
+
+    administrator = Group.objects.get(name=RoleName.ADMINISTRATOR.value)
+
+    stored_permissions = {
+        f"{app_label}.{codename}"
+        for app_label, codename in administrator.permissions.values_list(
+            "content_type__app_label",
+            "codename",
+        )
+    }
+
+    assert stored_permissions == {
+        "accounts.view_user",
+        "accounts.add_user",
+        "accounts.change_user",
+    }
+
+
+@pytest.mark.django_db
+def test_other_roles_receive_no_account_permissions() -> None:
+    """Avoid granting account management to operational roles."""
+
+    ensure_default_roles()
+
+    operational_roles = Group.objects.exclude(name=RoleName.ADMINISTRATOR.value)
+
+    assert not operational_roles.filter(
+        permissions__content_type__app_label="accounts"
+    ).exists()

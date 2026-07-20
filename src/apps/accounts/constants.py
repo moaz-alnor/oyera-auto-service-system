@@ -12,3 +12,11 @@ class RoleName(StrEnum):
     TECHNICIAN = "Technician"
     CASHIER = "Cashier"
     MANAGER = "Manager"
+
+
+class PermissionName(StrEnum):
+    """Identify account-management permissions used by the application."""
+
+    VIEW_USER = "accounts.view_user"
+    ADD_USER = "accounts.add_user"
+    CHANGE_USER = "accounts.change_user"
