@@ -18,6 +18,21 @@ urlpatterns = [
         name="create",
     ),
     path(
+        "<int:customer_id>/edit/",
+        views.customer_update,
+        name="update",
+    ),
+    path(
+        "<int:customer_id>/deactivate/",
+        views.customer_deactivate,
+        name="deactivate",
+    ),
+    path(
+        "<int:customer_id>/reactivate/",
+        views.customer_reactivate,
+        name="reactivate",
+    ),
+    path(
         "<int:customer_id>/",
         views.customer_detail,
         name="detail",

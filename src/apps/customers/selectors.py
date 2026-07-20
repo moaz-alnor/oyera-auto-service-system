@@ -61,20 +61,19 @@ def find_possible_customer_duplicates(
     name: str,
     phone_number: str,
     email: str = "",
+    exclude_customer_id: int | None = None,
 ) -> QuerySet[Customer]:
-    """Return existing customers that may represent the same customer.
-
-    Phone-number matches are treated as the strongest signal. Exact
-    normalized name and email matches are also returned for employee
-    review.
+    """Return existing records that may represent the same customer.
 
     Args:
         name: Proposed customer or company name.
         phone_number: Proposed customer phone number.
         email: Optional proposed email address.
+        exclude_customer_id: Customer that should not be compared with
+            itself during an update.
 
     Returns:
-        Existing active and inactive possible duplicate customers.
+        Active and inactive possible duplicate customers.
     """
 
     normalized_name = normalize_customer_name(name)
@@ -88,9 +87,13 @@ def find_possible_customer_duplicates(
     if normalized_email:
         duplicate_filter |= Q(email__iexact=normalized_email)
 
+    customers = Customer.objects.filter(duplicate_filter)
+
+    if exclude_customer_id is not None:
+        customers = customers.exclude(pk=exclude_customer_id)
+
     return (
-        Customer.objects.filter(duplicate_filter)
-        .select_related(
+        customers.select_related(
             "created_by",
             "updated_by",
         )

@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}
 
 {% block title %}
-    Register Customer | Oyera Auto Service
+    {{ page_title }} | Oyera Auto Service
 {% endblock %}
 
 {% block app_content %}
@@ -10,13 +10,11 @@
             Customer management
         </p>
 
-        <h1>Register customer</h1>
+        <h1>{{ page_title }}</h1>
 
         <p class="page-header__description">
-            Search results and duplicate warnings help prevent
-            multiple records for the same customer.
-        </p>
-    </header>
+            {{ page_description }}
+        </p></header>
 
     {% if duplicate_confirmation_required %}
         <section class="alert alert--error">
@@ -45,6 +43,7 @@
                                     <a
                                         href="{% url 'customers:detail' customer.pk %}"
                                         target="_blank"
+                                        rel="noopener"
                                     >
                                         {{ customer.customer_number }}
                                     </a>
@@ -116,21 +115,17 @@
             <div class="form-actions">
                 <a
                     class="button button--secondary"
-                    href="{% url 'customers:list' %}"
-                >
-                    Cancel
-                </a>
+                    href="{{ cancel_url }}">
+                    Cancel</a>
 
                 <button
                     class="button button--primary"
-                    type="submit"
-                >
+                    type="submit">
                     {% if duplicate_confirmation_required %}
-                        Create customer anyway
+                        Confirm and save
                     {% else %}
-                        Register customer
-                    {% endif %}
-                </button>
+                        {{ submit_label }}
+                    {% endif %}</button>
             </div>
         </form>
     </section>

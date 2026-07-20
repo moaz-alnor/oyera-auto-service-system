@@ -110,3 +110,21 @@ def test_duplicate_detection_uses_phone_name_and_email(
     )
 
     assert list(results) == [active_customer]
+
+
+@pytest.mark.django_db
+def test_duplicate_detection_can_exclude_current_customer(
+    customers: tuple[Customer, Customer],
+) -> None:
+    """Avoid treating a customer as their own duplicate."""
+
+    active_customer, _ = customers
+
+    results = find_possible_customer_duplicates(
+        name=active_customer.name,
+        phone_number=active_customer.phone_number,
+        email=active_customer.email,
+        exclude_customer_id=active_customer.pk,
+    )
+
+    assert not results.exists()

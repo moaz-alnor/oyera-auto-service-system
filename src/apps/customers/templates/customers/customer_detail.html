@@ -18,12 +18,59 @@
             </p>
         </div>
 
-        <a
-            class="button button--secondary"
-            href="{% url 'customers:list' %}"
-        >
-            Back to customers
-        </a>
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'customers:list' %}"
+            >
+                Back to customers
+            </a>
+
+            {% if perms.customers.change_customer %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'customers:update' customer.pk %}"
+                >
+                    Edit customer
+                </a>
+            {% endif %}
+
+            {% if customer.is_active %}
+                {% if perms.customers.deactivate_customer %}
+                    <form
+                        class="inline-form"
+                        method="post"
+                        action="{% url 'customers:deactivate' customer.pk %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            class="button button--danger"
+                            type="submit"
+                        >
+                            Deactivate
+                        </button>
+                    </form>
+                {% endif %}
+            {% else %}
+                {% if perms.customers.reactivate_customer %}
+                    <form
+                        class="inline-form"
+                        method="post"
+                        action="{% url 'customers:reactivate' customer.pk %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            class="button button--primary"
+                            type="submit"
+                        >
+                            Reactivate
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
+        </div>
     </header>
 
     <section class="card">

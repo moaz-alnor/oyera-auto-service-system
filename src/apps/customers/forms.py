@@ -5,8 +5,8 @@ from django import forms
 from apps.customers.models import Customer
 
 
-class CustomerRegistrationForm(forms.ModelForm):
-    """Collect customer information for registration."""
+class CustomerDetailsForm(forms.ModelForm):
+    """Collect customer information for create and update workflows."""
 
     confirm_duplicate = forms.BooleanField(
         required=False,
@@ -14,7 +14,7 @@ class CustomerRegistrationForm(forms.ModelForm):
     )
 
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
-        """Configure customer registration fields and widgets."""
+        """Configure editable customer fields and widgets."""
 
         model = Customer
         fields = (
@@ -26,7 +26,11 @@ class CustomerRegistrationForm(forms.ModelForm):
             "notes",
         )
         widgets = {
-            "customer_type": forms.Select(attrs={"class": "form-control"}),
+            "customer_type": forms.Select(
+                attrs={
+                    "class": "form-control",
+                }
+            ),
             "name": forms.TextInput(
                 attrs={
                     "class": "form-control",
@@ -63,3 +67,11 @@ class CustomerRegistrationForm(forms.ModelForm):
                 }
             ),
         }
+
+
+class CustomerRegistrationForm(CustomerDetailsForm):
+    """Collect information required to register a customer."""
+
+
+class CustomerUpdateForm(CustomerDetailsForm):
+    """Collect changes to an existing customer record."""
