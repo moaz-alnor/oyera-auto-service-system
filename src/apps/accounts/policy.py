@@ -2,6 +2,9 @@
 
 from apps.accounts.constants import PermissionName, RoleName
 from apps.customers.constants import CustomerPermissionName
+from apps.service_catalogue.constants import (
+    ServicePermissionName,
+)
 from apps.vehicles.constants import VehiclePermissionName
 
 ROLE_PERMISSION_POLICY: dict[
@@ -24,6 +27,12 @@ ROLE_PERMISSION_POLICY: dict[
             VehiclePermissionName.TRANSFER_VEHICLE_OWNER.value,
             VehiclePermissionName.DEACTIVATE_VEHICLE.value,
             VehiclePermissionName.REACTIVATE_VEHICLE.value,
+            ServicePermissionName.VIEW_SERVICE.value,
+            ServicePermissionName.ADD_SERVICE.value,
+            ServicePermissionName.CHANGE_SERVICE.value,
+            ServicePermissionName.CHANGE_SERVICE_PRICE.value,
+            ServicePermissionName.DEACTIVATE_SERVICE.value,
+            ServicePermissionName.REACTIVATE_SERVICE.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -35,16 +44,19 @@ ROLE_PERMISSION_POLICY: dict[
             VehiclePermissionName.ADD_VEHICLE.value,
             VehiclePermissionName.CHANGE_VEHICLE.value,
             VehiclePermissionName.TRANSFER_VEHICLE_OWNER.value,
+            ServicePermissionName.VIEW_SERVICE.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
         {
             VehiclePermissionName.VIEW_VEHICLE.value,
+            ServicePermissionName.VIEW_SERVICE.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
         {
             VehiclePermissionName.VIEW_VEHICLE.value,
+            ServicePermissionName.VIEW_SERVICE.value,
         }
     ),
     RoleName.CASHIER: frozenset(
@@ -53,12 +65,19 @@ ROLE_PERMISSION_POLICY: dict[
             CustomerPermissionName.ADD_CUSTOMER.value,
             CustomerPermissionName.CHANGE_CUSTOMER.value,
             VehiclePermissionName.VIEW_VEHICLE.value,
+            ServicePermissionName.VIEW_SERVICE.value,
         }
     ),
     RoleName.MANAGER: frozenset(
         {
             CustomerPermissionName.VIEW_CUSTOMER.value,
             VehiclePermissionName.VIEW_VEHICLE.value,
+            ServicePermissionName.VIEW_SERVICE.value,
+            ServicePermissionName.ADD_SERVICE.value,
+            ServicePermissionName.CHANGE_SERVICE.value,
+            ServicePermissionName.CHANGE_SERVICE_PRICE.value,
+            ServicePermissionName.DEACTIVATE_SERVICE.value,
+            ServicePermissionName.REACTIVATE_SERVICE.value,
         }
     ),
 }
