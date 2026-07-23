@@ -1,9 +1,14 @@
 """Django admin configuration for employee accounts."""
 
+from collections.abc import Callable
+
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.http import HttpRequest
 
-from .models import User
+from apps.accounts.models import User
+
+type AdminAction = tuple[Callable[..., str], str, str] | None
 
 
 @admin.register(User)
@@ -35,7 +40,7 @@ class UserAdmin(DjangoUserAdmin):
     ordering = ("username",)
 
     fieldsets = (
-        *DjangoUserAdmin.fieldsets,
+        *(DjangoUserAdmin.fieldsets or ()),
         (
             "Additional information",
             {
@@ -45,7 +50,7 @@ class UserAdmin(DjangoUserAdmin):
     )
 
     add_fieldsets = (
-        *DjangoUserAdmin.add_fieldsets,
+        *(DjangoUserAdmin.add_fieldsets or ()),
         (
             "Additional information",
             {
@@ -53,3 +58,23 @@ class UserAdmin(DjangoUserAdmin):
             },
         ),
     )
+
+    def has_delete_permission(
+        self,
+        request: HttpRequest,
+        obj: User | None = None,
+    ) -> bool:
+        """Prevent deletion of employee accounts with historical activity."""
+
+        return False
+
+    def get_actions(
+        self,
+        request: HttpRequest,
+    ) -> dict[str, AdminAction]:
+        """Remove Django's bulk-delete action."""
+
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+
+        return actions
