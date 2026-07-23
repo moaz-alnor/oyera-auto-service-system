@@ -43,6 +43,18 @@
                 Vehicles
             </a>
         {% endif %}
+        {% if perms.service_catalogue.view_service %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'service_catalogue' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'service_catalogue:list' %}"
+            >
+                Services
+            </a>
+        {% endif %}
 
         {% if request.user.is_staff %}
             <p class="sidebar-nav__label">

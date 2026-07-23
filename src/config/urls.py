@@ -14,4 +14,8 @@ urlpatterns = [
         "vehicles/",
         include("apps.vehicles.urls"),
     ),
+    path(
+        "services/",
+        include("apps.service_catalogue.urls"),
+    ),
 ]

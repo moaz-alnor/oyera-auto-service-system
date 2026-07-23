@@ -1,0 +1,83 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Change Price | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            {{ service.code }}
+        </p>
+
+        <h1>Change service price</h1>
+
+        <p class="page-header__description">
+            A new price period will be created. Previous prices
+            remain preserved for historical records.
+        </p>
+    </header>
+
+    {% if current_price %}
+        <section class="alert alert--info">
+            Current price:
+            <strong>
+                {{ current_price.currency }}
+                {{ current_price.amount|floatformat:2 }}
+            </strong>
+        </section>
+    {% endif %}
+
+    <section class="card">
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+        >
+            {% csrf_token %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{% url 'service_catalogue:detail' service.pk %}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Save new price
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

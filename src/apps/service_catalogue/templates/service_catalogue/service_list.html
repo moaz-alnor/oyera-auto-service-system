@@ -1,0 +1,193 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Services | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Service catalogue
+            </p>
+
+            <h1>Services</h1>
+
+            <p class="page-header__description">
+                Search service definitions, applicability, and prices.
+            </p>
+        </div>
+
+        {% if perms.service_catalogue.add_service %}
+            <a
+                class="button button--primary"
+                href="{% url 'service_catalogue:create' %}"
+            >
+                Add service
+            </a>
+        {% endif %}
+    </header>
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="service-search"
+                >
+                    Search services
+                </label>
+
+                <input
+                    id="service-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Code, name, or description"
+                >
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="category-filter"
+                >
+                    Vehicle category
+                </label>
+
+                <select
+                    id="category-filter"
+                    class="form-control"
+                    name="category"
+                >
+                    <option value="">All categories</option>
+
+                    {% for value, label in vehicle_categories %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_category == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <label class="checkbox-field">
+                <input
+                    type="checkbox"
+                    name="include_inactive"
+                    value="1"
+                    {% if include_inactive %}checked{% endif %}
+                >
+
+                Include inactive
+            </label>
+
+            <button
+                class="button button--secondary"
+                type="submit"
+            >
+                Search
+            </button>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Service</th>
+                            <th scope="col">Duration</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for service in page.object_list %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'service_catalogue:detail' service.pk %}"
+                                    >
+                                        {{ service.code }}
+                                    </a>
+                                </td>
+
+                                <td>{{ service.name }}</td>
+
+                                <td>
+                                    {% if service.estimated_duration_minutes %}
+                                        {{ service.estimated_duration_minutes }}
+                                        minutes
+                                    {% else %}
+                                        Not estimated
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if service.is_active %}
+                                        <span class="status-badge status-badge--active">
+                                            Active
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Inactive
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.has_other_pages %}
+                <nav
+                    class="pagination"
+                    aria-label="Service pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&category={{ selected_category|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }} of
+                        {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&category={{ selected_category|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No services found</h2>
+
+                <p>
+                    Adjust the filters or add a catalogue service.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
