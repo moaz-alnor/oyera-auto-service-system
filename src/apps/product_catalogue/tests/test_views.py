@@ -267,3 +267,81 @@ def test_product_detail_displays_price_history(
     assert b"OIL-FILTER-001" in response.content
     assert b"Engine Oil Filter" in response.content
     assert b"45000.00" in response.content
+
+
+@pytest.mark.django_db
+def test_manager_can_deactivate_and_reactivate_product(
+    client,
+    manager: User,
+    catalogue_product: Product,
+) -> None:
+    """Change product status through protected POST endpoints."""
+
+    client.force_login(manager)
+
+    deactivate_response = client.post(
+        reverse(
+            "product_catalogue:deactivate",
+            args=(catalogue_product.pk,),
+        )
+    )
+
+    catalogue_product.refresh_from_db()
+
+    assert deactivate_response.status_code == 302
+    assert not catalogue_product.is_active
+
+    reactivate_response = client.post(
+        reverse(
+            "product_catalogue:reactivate",
+            args=(catalogue_product.pk,),
+        )
+    )
+
+    catalogue_product.refresh_from_db()
+
+    assert reactivate_response.status_code == 302
+    assert catalogue_product.is_active
+
+
+@pytest.mark.django_db
+def test_product_deactivation_requires_post(
+    client,
+    manager: User,
+    catalogue_product: Product,
+) -> None:
+    """Reject GET requests to the product-deactivation endpoint."""
+
+    client.force_login(manager)
+
+    response = client.get(
+        reverse(
+            "product_catalogue:deactivate",
+            args=(catalogue_product.pk,),
+        )
+    )
+
+    catalogue_product.refresh_from_db()
+
+    assert response.status_code == 405
+    assert catalogue_product.is_active
+
+
+@pytest.mark.django_db
+def test_technician_cannot_edit_product(
+    client,
+    technician: User,
+    catalogue_product: Product,
+) -> None:
+    """Return HTTP 403 for unauthorized product editing."""
+
+    client.force_login(technician)
+
+    response = client.get(
+        reverse(
+            "product_catalogue:update",
+            args=(catalogue_product.pk,),
+        )
+    )
+
+    assert response.status_code == 403

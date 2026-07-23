@@ -153,3 +153,15 @@ def get_product_price_history(
             "-created_at",
         )
     )
+
+
+def get_product_category_by_id(
+    *,
+    category_id: int,
+) -> ProductCategory:
+    """Return one product category with employee information."""
+
+    return ProductCategory.objects.select_related(
+        "created_by",
+        "updated_by",
+    ).get(pk=category_id)

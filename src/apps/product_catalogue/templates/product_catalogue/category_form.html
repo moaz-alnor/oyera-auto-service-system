@@ -1,7 +1,8 @@
 {% extends "layouts/app.html" %}
 
 {% block title %}
-    Add Product Category | Oyera Auto Service
+    {{ page_title|default:"Add Product Category" }}
+    | Oyera Auto Service
 {% endblock %}
 
 {% block app_content %}
@@ -10,10 +11,10 @@
             Product catalogue
         </p>
 
-        <h1>Add product category</h1>
+        <h1>{{ page_title|default:"Add product category" }}</h1>
 
         <p class="page-header__description">
-            Create a reusable category for organizing catalogue products.
+            {{ page_description|default:"Create a reusable product category." }}
         </p>
     </header>
 
@@ -61,14 +62,13 @@
             <div class="form-actions">
                 <a
                     class="button button--secondary"
-                    href="{% url 'product_catalogue:category_list' %}"
-                >
+                    href="{{ cancel_url|default:'/products/categories/' }}"                >
                     Cancel
                 </a>
 
                 <button
                     class="button button--primary"
-                    type="submit"
+                    {{ submit_label|default:"Add category" }}
                 >
                     Add category
                 </button>

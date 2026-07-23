@@ -90,6 +90,7 @@
                             <th scope="col">Category</th>
                             <th scope="col">Description</th>
                             <th scope="col">Status</th>
+                            <th scope="col" class="text-right">Actions</th>
                         </tr>
                     </thead>
 
@@ -113,6 +114,53 @@
                                         <span class="status-badge status-badge--inactive">
                                             Inactive
                                         </span>
+                                    {% endif %}
+                                </td>
+                                
+                                <td>
+                                    {% if perms.product_catalogue.change_productcategory %}
+                                        <div class="table-actions">
+                                            <a
+                                                class="button button--secondary"
+                                                href="{% url 'product_catalogue:category_update' category.pk %}"
+                                            >
+                                                Edit
+                                            </a>
+
+                                            {% if category.is_active %}
+                                                <form
+                                                    class="inline-form"
+                                                    method="post"
+                                                    action="{% url 'product_catalogue:category_deactivate' category.pk %}"
+                                                >
+                                                    {% csrf_token %}
+
+                                                    <button
+                                                        class="button button--danger"
+                                                        type="submit"
+                                                    >
+                                                        Deactivate
+                                                    </button>
+                                                </form>
+                                            {% else %}
+                                                <form
+                                                    class="inline-form"
+                                                    method="post"
+                                                    action="{% url 'product_catalogue:category_reactivate' category.pk %}"
+                                                >
+                                                    {% csrf_token %}
+
+                                                    <button
+                                                        class="button button--primary"
+                                                        type="submit"
+                                                    >
+                                                        Reactivate
+                                                    </button>
+                                                </form>
+                                            {% endif %}
+                                        </div>
+                                    {% else %}
+                                        —
                                     {% endif %}
                                 </td>
                             </tr>

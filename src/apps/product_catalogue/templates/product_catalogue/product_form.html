@@ -1,7 +1,8 @@
 {% extends "layouts/app.html" %}
 
 {% block title %}
-    Add Product | Oyera Auto Service
+    {{ page_title|default:"Add Product" }}
+    | Oyera Auto Service
 {% endblock %}
 
 {% block app_content %}
@@ -10,11 +11,10 @@
             Product catalogue
         </p>
 
-        <h1>Add product</h1>
+        <h1>{{ page_title|default:"Add product" }}</h1>
 
         <p class="page-header__description">
-            Register a catalogue product and its initial selling price.
-            Stock quantities will be managed separately through inventory.
+            {{ page_description|default:"Register a catalogue product and its initial selling price." }}
         </p>
     </header>
 
@@ -62,14 +62,14 @@
             <div class="form-actions">
                 <a
                     class="button button--secondary"
-                    href="{% url 'product_catalogue:list' %}"
+                    href="{{ cancel_url|default:'/products/' }}"
                 >
                     Cancel
                 </a>
 
                 <button
                     class="button button--primary"
-                    type="submit"
+                    {{ submit_label|default:"Add product" }}
                 >
                     Add product
                 </button>
