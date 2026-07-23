@@ -78,3 +78,22 @@ def normalize_optional_identifier(value: str) -> str:
         " ",
         value.strip().upper(),
     )
+
+
+def normalize_registration_search(value: str) -> str:
+    """Return a canonical value for partial registration searches.
+
+    Unlike stored registration validation, search input may contain only
+    part of a registration number.
+
+    Args:
+        value: Full or partial registration search value.
+
+    Returns:
+        An uppercase letters-and-digits-only search value.
+    """
+
+    return _NON_ALPHANUMERIC_PATTERN.sub(
+        "",
+        value.upper(),
+    )

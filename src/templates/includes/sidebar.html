@@ -31,6 +31,19 @@
             </a>
         {% endif %}
 
+        {% if perms.vehicles.view_vehicle %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'vehicles' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'vehicles:list' %}"
+            >
+                Vehicles
+            </a>
+        {% endif %}
+
         {% if request.user.is_staff %}
             <p class="sidebar-nav__label">
                 Administration

@@ -1,0 +1,77 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Transfer Ownership | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Vehicle ownership
+        </p>
+
+        <h1>Transfer ownership</h1>
+
+        <p class="page-header__description">
+            Transfer {{ vehicle.registration_number }} from
+            {{ vehicle.current_owner }} to another active customer.
+        </p>
+    </header>
+
+    <section class="card">
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">
+                        {{ error }}
+                    </p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+        >
+            {% csrf_token %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{% url 'vehicles:detail' vehicle.pk %}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Transfer ownership
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
