@@ -103,19 +103,39 @@ class VehicleRegistrationForm(forms.ModelForm):
             )
 
     def clean_registration_number(self) -> str:
-        """Normalize registration and reject existing vehicles."""
+        """Normalize registration and reject another matching vehicle."""
 
         registration_number = self.cleaned_data["registration_number"]
         normalized_key = normalize_registration_key(registration_number)
 
-        if Vehicle.objects.filter(
+        matching_vehicles = Vehicle.objects.filter(
             normalized_registration_number=normalized_key
-        ).exists():
+        )
+
+        if self.instance.pk is not None:
+            matching_vehicles = matching_vehicles.exclude(pk=self.instance.pk)
+
+        if matching_vehicles.exists():
             raise forms.ValidationError(
                 "A vehicle with this registration number already exists."
             )
 
         return normalize_registration_display(registration_number)
+
+
+class VehicleUpdateForm(VehicleRegistrationForm):
+    """Collect editable information for an existing vehicle."""
+
+    def __init__(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """Remove ownership from normal vehicle editing."""
+
+        super().__init__(*args, **kwargs)
+
+        self.fields.pop("current_owner", None)
 
 
 class VehicleOwnershipTransferForm(forms.Form):

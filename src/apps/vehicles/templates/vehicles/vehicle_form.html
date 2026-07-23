@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}
 
 {% block title %}
-    Register Vehicle | Oyera Auto Service
+     {{ page_title }} | Oyera Auto Service
 {% endblock %}
 
 {% block app_content %}
@@ -10,10 +10,10 @@
             Vehicle management
         </p>
 
-        <h1>Register vehicle</h1>
+        <h1>{{ page_title }}</h1>
 
         <p class="page-header__description">
-            Register the vehicle and create its initial ownership record.
+            {{ page_description }}
         </p>
     </header>
 
@@ -65,7 +65,7 @@
             <div class="form-actions">
                 <a
                     class="button button--secondary"
-                    href="{% url 'vehicles:list' %}"
+                    href="{{ cancel_url }}"
                 >
                     Cancel
                 </a>
@@ -74,7 +74,7 @@
                     class="button button--primary"
                     type="submit"
                 >
-                    Register vehicle
+                    {{ submit_label }}
                 </button>
             </div>
         </form>

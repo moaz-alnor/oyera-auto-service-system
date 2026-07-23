@@ -36,6 +36,24 @@ class RegisterVehicleCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class UpdateVehicleCommand:
+    """Contain validated replacement vehicle information."""
+
+    registration_number: str
+    category: VehicleCategory
+    make: str
+    model: str
+    year: int | None = None
+    color: str = ""
+    current_mileage: int | None = None
+    fuel_type: FuelType | str = ""
+    engine_number: str = ""
+    chassis_number: str = ""
+    vin: str = ""
+    notes: str = ""
+
+
+@dataclass(frozen=True, slots=True)
 class TransferVehicleOwnershipCommand:
     """Contain information for a vehicle ownership transfer."""
 
@@ -148,6 +166,165 @@ def register_vehicle(
 
 
 @transaction.atomic
+def update_vehicle(
+    *,
+    actor: User,
+    vehicle_id: int,
+    command: UpdateVehicleCommand,
+) -> Vehicle:
+    """Update an existing vehicle without changing its owner.
+
+    Args:
+        actor: Authenticated employee performing the update.
+        vehicle_id: Primary key of the vehicle.
+        command: Replacement vehicle information.
+
+    Returns:
+        The updated vehicle.
+
+    Raises:
+        PermissionDenied: If the employee cannot update vehicles.
+        ValidationError: If the information or mileage is invalid.
+    """
+
+    _require_permission(
+        actor=actor,
+        permission=VehiclePermissionName.CHANGE_VEHICLE,
+    )
+
+    vehicle = Vehicle.objects.select_for_update().get(pk=vehicle_id)
+
+    if (
+        vehicle.current_mileage is not None
+        and command.current_mileage is not None
+        and command.current_mileage < vehicle.current_mileage
+    ):
+        raise ValidationError(
+            {
+                "current_mileage": (
+                    "Current mileage cannot be lower than the "
+                    f"previous value of {vehicle.current_mileage}."
+                )
+            }
+        )
+
+    vehicle.registration_number = command.registration_number
+    vehicle.category = command.category
+    vehicle.make = command.make
+    vehicle.model = command.model
+    vehicle.year = command.year
+    vehicle.color = command.color
+    vehicle.current_mileage = command.current_mileage
+    vehicle.fuel_type = command.fuel_type
+    vehicle.engine_number = command.engine_number
+    vehicle.chassis_number = command.chassis_number
+    vehicle.vin = command.vin
+    vehicle.notes = command.notes.strip()
+    vehicle.updated_by = actor
+
+    vehicle.full_clean()
+
+    vehicle.save(
+        update_fields=(
+            "registration_number",
+            "normalized_registration_number",
+            "category",
+            "make",
+            "model",
+            "year",
+            "color",
+            "current_mileage",
+            "fuel_type",
+            "engine_number",
+            "chassis_number",
+            "vin",
+            "notes",
+            "updated_by",
+            "updated_at",
+        )
+    )
+
+    return vehicle
+
+
+@transaction.atomic
+def deactivate_vehicle(
+    *,
+    actor: User,
+    vehicle_id: int,
+) -> Vehicle:
+    """Deactivate a vehicle without changing ownership history."""
+
+    _require_permission(
+        actor=actor,
+        permission=VehiclePermissionName.DEACTIVATE_VEHICLE,
+    )
+
+    vehicle = Vehicle.objects.select_for_update().get(pk=vehicle_id)
+
+    if not vehicle.is_active:
+        return vehicle
+
+    vehicle.is_active = False
+    vehicle.updated_by = actor
+    vehicle.save(
+        update_fields=(
+            "is_active",
+            "updated_by",
+            "updated_at",
+        )
+    )
+
+    return vehicle
+
+
+@transaction.atomic
+def reactivate_vehicle(
+    *,
+    actor: User,
+    vehicle_id: int,
+) -> Vehicle:
+    """Reactivate a vehicle whose current owner remains active."""
+
+    _require_permission(
+        actor=actor,
+        permission=VehiclePermissionName.REACTIVATE_VEHICLE,
+    )
+
+    vehicle = (
+        Vehicle.objects.select_for_update()
+        .select_related("current_owner")
+        .get(pk=vehicle_id)
+    )
+
+    if vehicle.is_active:
+        return vehicle
+
+    if not vehicle.current_owner.is_active:
+        raise ValidationError(
+            {
+                "is_active": (
+                    "This vehicle cannot be reactivated because "
+                    "its current owner is inactive. Reactivate the "
+                    "customer or transfer ownership first."
+                )
+            }
+        )
+
+    vehicle.is_active = True
+    vehicle.updated_by = actor
+    vehicle.save(
+        update_fields=(
+            "is_active",
+            "updated_by",
+            "updated_at",
+        )
+    )
+
+    return vehicle
+
+
+@transaction.atomic
 def transfer_vehicle_ownership(
     *,
     actor: User,
@@ -168,7 +345,8 @@ def transfer_vehicle_ownership(
         PermissionDenied: If the employee cannot transfer vehicles.
         Vehicle.DoesNotExist: If the vehicle does not exist.
         Customer.DoesNotExist: If the new owner does not exist.
-        ValidationError: If the new owner is inactive.
+        ValidationError: If the new owner is inactive, the vehicle is inactive,
+                         or the new owner is the same as the current owner.
     """
 
     _require_permission(
@@ -179,8 +357,20 @@ def transfer_vehicle_ownership(
     vehicle = Vehicle.objects.select_for_update().get(pk=vehicle_id)
     new_owner = _get_active_customer(customer_id=command.new_owner_id)
 
-    if vehicle.current_owner_id == new_owner.pk:
-        return vehicle
+    if not vehicle.is_active:
+        raise ValidationError(
+            {
+                "new_owner": (
+                    "Ownership cannot be transferred while the "
+                    "vehicle is inactive. Reactivate the vehicle first."
+                )
+            }
+        )
+
+    if vehicle.current_owner.pk == new_owner.pk:
+        raise ValidationError(
+            {"new_owner": ("Select a customer other than the current owner.")}
+        )
 
     try:
         current_ownership = VehicleOwnership.objects.select_for_update().get(

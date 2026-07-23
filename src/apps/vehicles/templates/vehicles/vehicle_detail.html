@@ -19,13 +19,16 @@
         </div>
 
         <div class="page-actions">
+        {% if perms.vehicles.change_vehicle %}
             <a
                 class="button button--secondary"
-                href="{% url 'vehicles:list' %}"
+                href="{% url 'vehicles:update' vehicle.pk %}"
             >
-                Back to vehicles
+                Edit vehicle
             </a>
+        {% endif %}
 
+        {% if vehicle.is_active %}
             {% if perms.vehicles.transfer_vehicle_owner %}
                 <a
                     class="button button--primary"
@@ -34,6 +37,41 @@
                     Transfer ownership
                 </a>
             {% endif %}
+
+            {% if perms.vehicles.deactivate_vehicle %}
+                <form
+                    class="inline-form"
+                    method="post"
+                    action="{% url 'vehicles:deactivate' vehicle.pk %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        class="button button--danger"
+                        type="submit"
+                    >
+                        Deactivate
+                    </button>
+                </form>
+            {% endif %}
+        {% else %}
+            {% if perms.vehicles.reactivate_vehicle %}
+                <form
+                    class="inline-form"
+                    method="post"
+                    action="{% url 'vehicles:reactivate' vehicle.pk %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        class="button button--primary"
+                        type="submit"
+                    >
+                        Reactivate
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
         </div>
     </header>
 

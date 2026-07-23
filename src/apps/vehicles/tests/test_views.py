@@ -255,3 +255,135 @@ def test_receptionist_can_transfer_ownership(
         owner=second_owner,
         ended_at__isnull=True,
     ).exists()
+
+
+@pytest.fixture
+def administrator() -> User:
+    """Create an employee with full vehicle permissions."""
+
+    ensure_default_roles()
+
+    employee = User.objects.create_user(
+        username="vehicle.view.administrator",
+        password="Strong-Test-Password-2026",
+    )
+    employee.groups.add(Group.objects.get(name=RoleName.ADMINISTRATOR.value))
+
+    return employee
+
+
+@pytest.mark.django_db
+def test_technician_cannot_edit_vehicle(
+    client,
+    technician: User,
+    owners: tuple[Customer, Customer],
+) -> None:
+    """Return HTTP 403 for vehicle-edit attempts."""
+
+    first_owner, _ = owners
+
+    vehicle = Vehicle.objects.create(
+        vehicle_number="VEH-000001",
+        registration_number="UBD 245X",
+        normalized_registration_number="UBD245X",
+        current_owner=first_owner,
+        category=VehicleCategory.SMALL,
+        make="Toyota",
+        model="Corolla",
+        created_by=technician,
+        updated_by=technician,
+    )
+
+    client.force_login(technician)
+
+    response = client.get(
+        reverse(
+            "vehicles:update",
+            args=(vehicle.pk,),
+        )
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_vehicle_deactivation_requires_post(
+    client,
+    administrator: User,
+    owners: tuple[Customer, Customer],
+) -> None:
+    """Reject GET requests to vehicle deactivation."""
+
+    first_owner, _ = owners
+
+    vehicle = Vehicle.objects.create(
+        vehicle_number="VEH-000001",
+        registration_number="UBD 245X",
+        normalized_registration_number="UBD245X",
+        current_owner=first_owner,
+        category=VehicleCategory.SMALL,
+        make="Toyota",
+        model="Corolla",
+        created_by=administrator,
+        updated_by=administrator,
+    )
+
+    client.force_login(administrator)
+
+    response = client.get(
+        reverse(
+            "vehicles:deactivate",
+            args=(vehicle.pk,),
+        )
+    )
+
+    assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test_administrator_can_deactivate_and_reactivate_vehicle(
+    client,
+    administrator: User,
+    owners: tuple[Customer, Customer],
+) -> None:
+    """Change vehicle status through protected POST actions."""
+
+    first_owner, _ = owners
+
+    vehicle = Vehicle.objects.create(
+        vehicle_number="VEH-000001",
+        registration_number="UBD 245X",
+        normalized_registration_number="UBD245X",
+        current_owner=first_owner,
+        category=VehicleCategory.SMALL,
+        make="Toyota",
+        model="Corolla",
+        created_by=administrator,
+        updated_by=administrator,
+    )
+
+    client.force_login(administrator)
+
+    deactivate_response = client.post(
+        reverse(
+            "vehicles:deactivate",
+            args=(vehicle.pk,),
+        )
+    )
+
+    vehicle.refresh_from_db()
+
+    assert deactivate_response.status_code == 302
+    assert not vehicle.is_active
+
+    reactivate_response = client.post(
+        reverse(
+            "vehicles:reactivate",
+            args=(vehicle.pk,),
+        )
+    )
+
+    vehicle.refresh_from_db()
+
+    assert reactivate_response.status_code == 302
+    assert vehicle.is_active

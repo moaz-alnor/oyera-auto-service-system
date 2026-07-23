@@ -2,7 +2,7 @@
 
 from django.db.models import Q, QuerySet
 
-from apps.vehicles.models import Vehicle
+from apps.vehicles.models import Vehicle, VehicleOwnership
 from apps.vehicles.normalization import (
     normalize_registration_search,
 )
@@ -80,15 +80,34 @@ def get_vehicle_by_id(
         Vehicle.DoesNotExist: If no matching vehicle exists.
     """
 
+    return Vehicle.objects.select_related(
+        "current_owner",
+        "created_by",
+        "updated_by",
+    ).get(pk=vehicle_id)
+
+
+def get_vehicle_ownership_history(
+    *,
+    vehicle_id: int,
+) -> QuerySet[VehicleOwnership]:
+    """Return a vehicle's ownership history.
+
+    Args:
+        vehicle_id: Primary key of the requested vehicle.
+
+    Returns:
+        Ownership records ordered from newest to oldest.
+    """
+
     return (
-        Vehicle.objects.select_related(
-            "current_owner",
-            "created_by",
-            "updated_by",
+        VehicleOwnership.objects.filter(vehicle_id=vehicle_id)
+        .select_related(
+            "owner",
+            "changed_by",
         )
-        .prefetch_related(
-            "ownership_history__owner",
-            "ownership_history__changed_by",
+        .order_by(
+            "-started_at",
+            "-created_at",
         )
-        .get(pk=vehicle_id)
     )
