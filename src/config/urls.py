@@ -18,4 +18,8 @@ urlpatterns = [
         "services/",
         include("apps.service_catalogue.urls"),
     ),
+    path(
+        "products/",
+        include("apps.product_catalogue.urls"),
+    ),
 ]

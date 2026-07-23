@@ -1,0 +1,133 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Product Categories | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Product catalogue
+            </p>
+
+            <h1>Product categories</h1>
+
+            <p class="page-header__description">
+                Organize products into reusable catalogue categories.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'product_catalogue:list' %}"
+            >
+                View products
+            </a>
+
+            {% if perms.product_catalogue.add_productcategory %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'product_catalogue:category_create' %}"
+                >
+                    Add category
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="category-search"
+                >
+                    Search categories
+                </label>
+
+                <input
+                    id="category-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Code, name, or description"
+                >
+            </div>
+
+            <label class="checkbox-field">
+                <input
+                    type="checkbox"
+                    name="include_inactive"
+                    value="1"
+                    {% if include_inactive %}checked{% endif %}
+                >
+
+                Include inactive
+            </label>
+
+            <button
+                class="button button--secondary"
+                type="submit"
+            >
+                Search
+            </button>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if categories %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Code</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for category in categories %}
+                            <tr>
+                                <td>{{ category.code }}</td>
+
+                                <td>{{ category.name }}</td>
+
+                                <td>
+                                    {{ category.description|default:"—"|truncatechars:80 }}
+                                </td>
+
+                                <td>
+                                    {% if category.is_active %}
+                                        <span class="status-badge status-badge--active">
+                                            Active
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Inactive
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h2>No product categories found</h2>
+
+                <p>
+                    Adjust the search or add the first product category.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
