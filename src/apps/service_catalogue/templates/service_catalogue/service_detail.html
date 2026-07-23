@@ -26,13 +26,58 @@
                 Back to services
             </a>
 
-            {% if perms.service_catalogue.change_service_price and service.is_active %}
+            {% if perms.service_catalogue.change_service %}
                 <a
-                    class="button button--primary"
-                    href="{% url 'service_catalogue:change_price' service.pk %}"
+                    class="button button--secondary"
+                    href="{% url 'service_catalogue:update' service.pk %}"
                 >
-                    Change price
+                    Edit service
                 </a>
+            {% endif %}
+
+            {% if service.is_active %}
+                {% if perms.service_catalogue.change_service_price %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'service_catalogue:change_price' service.pk %}"
+                    >
+                        Change price
+                    </a>
+                {% endif %}
+
+                {% if perms.service_catalogue.deactivate_service %}
+                    <form
+                        class="inline-form"
+                        method="post"
+                        action="{% url 'service_catalogue:deactivate' service.pk %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            class="button button--danger"
+                            type="submit"
+                        >
+                            Deactivate
+                        </button>
+                    </form>
+                {% endif %}
+            {% else %}
+                {% if perms.service_catalogue.reactivate_service %}
+                    <form
+                        class="inline-form"
+                        method="post"
+                        action="{% url 'service_catalogue:reactivate' service.pk %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            class="button button--primary"
+                            type="submit"
+                        >
+                            Reactivate
+                        </button>
+                    </form>
+                {% endif %}
             {% endif %}
         </div>
     </header>

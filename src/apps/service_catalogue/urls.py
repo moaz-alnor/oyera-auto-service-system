@@ -18,9 +18,24 @@ urlpatterns = [
         name="create",
     ),
     path(
+        "<int:service_id>/edit/",
+        views.service_update,
+        name="update",
+    ),
+    path(
         "<int:service_id>/change-price/",
         views.service_change_price,
         name="change_price",
+    ),
+    path(
+        "<int:service_id>/deactivate/",
+        views.service_deactivate,
+        name="deactivate",
+    ),
+    path(
+        "<int:service_id>/reactivate/",
+        views.service_reactivate,
+        name="reactivate",
     ),
     path(
         "<int:service_id>/",

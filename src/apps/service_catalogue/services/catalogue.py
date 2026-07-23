@@ -34,6 +34,17 @@ class CreateServiceCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class UpdateServiceCommand:
+    """Contain validated replacement service information."""
+
+    code: str
+    name: str
+    applicable_categories: tuple[VehicleCategory, ...]
+    description: str = ""
+    estimated_duration_minutes: int | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class ChangeServicePriceCommand:
     """Contain information for a service price change."""
 
@@ -130,6 +141,176 @@ def create_service(
     )
     price.full_clean()
     price.save()
+
+    return service
+
+
+@transaction.atomic
+def update_service(
+    *,
+    actor: User,
+    service_id: int,
+    command: UpdateServiceCommand,
+) -> Service:
+    """Update a service definition without changing price history.
+
+    Args:
+        actor: Authenticated employee performing the update.
+        service_id: Primary key of the service.
+        command: Replacement service information.
+
+    Returns:
+        The updated service.
+
+    Raises:
+        PermissionDenied: If the employee cannot update services.
+        ValidationError: If the service information is invalid.
+    """
+
+    _require_permission(
+        actor=actor,
+        permission=ServicePermissionName.CHANGE_SERVICE,
+    )
+
+    categories = _normalize_categories(command.applicable_categories)
+
+    service = Service.objects.select_for_update().get(pk=service_id)
+
+    service.code = command.code
+    service.name = command.name
+    service.description = command.description.strip()
+    service.estimated_duration_minutes = command.estimated_duration_minutes
+    service.updated_by = actor
+
+    service.full_clean()
+    service.save(
+        update_fields=(
+            "code",
+            "normalized_code",
+            "name",
+            "description",
+            "estimated_duration_minutes",
+            "updated_by",
+            "updated_at",
+        )
+    )
+
+    existing_categories = set(
+        ServiceApplicability.objects.select_for_update()
+        .filter(service=service)
+        .values_list(
+            "vehicle_category",
+            flat=True,
+        )
+    )
+    requested_categories = {category.value for category in categories}
+
+    removed_categories = existing_categories - requested_categories
+
+    if removed_categories:
+        ServiceApplicability.objects.filter(
+            service=service,
+            vehicle_category__in=removed_categories,
+        ).delete()
+
+    for category in categories:
+        if category.value in existing_categories:
+            continue
+
+        applicability = ServiceApplicability(
+            service=service,
+            vehicle_category=category,
+        )
+        applicability.full_clean()
+        applicability.save()
+
+    return service
+
+
+@transaction.atomic
+def deactivate_service(
+    *,
+    actor: User,
+    service_id: int,
+) -> Service:
+    """Deactivate a service without deleting its price history."""
+
+    _require_permission(
+        actor=actor,
+        permission=(ServicePermissionName.DEACTIVATE_SERVICE),
+    )
+
+    service = Service.objects.select_for_update().get(pk=service_id)
+
+    if not service.is_active:
+        return service
+
+    service.is_active = False
+    service.updated_by = actor
+    service.save(
+        update_fields=(
+            "is_active",
+            "updated_by",
+            "updated_at",
+        )
+    )
+
+    return service
+
+
+@transaction.atomic
+def reactivate_service(
+    *,
+    actor: User,
+    service_id: int,
+) -> Service:
+    """Reactivate a complete and usable catalogue service."""
+
+    _require_permission(
+        actor=actor,
+        permission=(ServicePermissionName.REACTIVATE_SERVICE),
+    )
+
+    service = Service.objects.select_for_update().get(pk=service_id)
+
+    if service.is_active:
+        return service
+
+    has_applicability = ServiceApplicability.objects.filter(service=service).exists()
+
+    if not has_applicability:
+        raise ValidationError(
+            {
+                "is_active": (
+                    "This service cannot be reactivated until at "
+                    "least one vehicle category is configured."
+                )
+            }
+        )
+
+    has_current_price = ServicePrice.objects.filter(
+        service=service,
+        effective_until__isnull=True,
+    ).exists()
+
+    if not has_current_price:
+        raise ValidationError(
+            {
+                "is_active": (
+                    "This service cannot be reactivated without a current price."
+                )
+            }
+        )
+
+    service.is_active = True
+    service.updated_by = actor
+    service.save(
+        update_fields=(
+            "is_active",
+            "updated_by",
+            "updated_at",
+        )
+    )
 
     return service
 

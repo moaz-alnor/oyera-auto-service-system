@@ -216,3 +216,113 @@ def test_service_detail_displays_price_history(
     assert response.status_code == 200
     assert b"OIL-CHANGE" in response.content
     assert b"75000.00" in response.content
+
+
+@pytest.mark.django_db
+def test_technician_cannot_edit_service(
+    client,
+    technician: User,
+    catalogue_service: Service,
+) -> None:
+    """Return HTTP 403 for service-edit attempts."""
+
+    client.force_login(technician)
+
+    response = client.get(
+        reverse(
+            "service_catalogue:update",
+            args=(catalogue_service.pk,),
+        )
+    )
+
+    assert response.status_code == 403
+
+
+@pytest.mark.django_db
+def test_manager_can_update_service(
+    client,
+    manager: User,
+    catalogue_service: Service,
+) -> None:
+    """Update a service through the HTTP workflow."""
+
+    client.force_login(manager)
+
+    response = client.post(
+        reverse(
+            "service_catalogue:update",
+            args=(catalogue_service.pk,),
+        ),
+        {
+            "code": "ENGINE-OIL",
+            "name": "Engine Oil and Filter Change",
+            "description": "Replace oil and filter.",
+            "estimated_duration_minutes": 60,
+            "applicable_categories": [
+                VehicleCategory.SMALL,
+                VehicleCategory.COMMERCIAL,
+            ],
+        },
+    )
+
+    catalogue_service.refresh_from_db()
+
+    assert response.status_code == 302
+    assert catalogue_service.code == "ENGINE-OIL"
+    assert catalogue_service.name == ("Engine Oil and Filter Change")
+    assert ServicePrice.objects.filter(service=catalogue_service).count() == 1
+
+
+@pytest.mark.django_db
+def test_service_deactivation_requires_post(
+    client,
+    manager: User,
+    catalogue_service: Service,
+) -> None:
+    """Reject GET requests to the status-changing endpoint."""
+
+    client.force_login(manager)
+
+    response = client.get(
+        reverse(
+            "service_catalogue:deactivate",
+            args=(catalogue_service.pk,),
+        )
+    )
+
+    assert response.status_code == 405
+
+
+@pytest.mark.django_db
+def test_manager_can_deactivate_and_reactivate_service(
+    client,
+    manager: User,
+    catalogue_service: Service,
+) -> None:
+    """Change catalogue status through protected POST actions."""
+
+    client.force_login(manager)
+
+    deactivate_response = client.post(
+        reverse(
+            "service_catalogue:deactivate",
+            args=(catalogue_service.pk,),
+        )
+    )
+
+    catalogue_service.refresh_from_db()
+
+    assert deactivate_response.status_code == 302
+    assert not catalogue_service.is_active
+
+    reactivate_response = client.post(
+        reverse(
+            "service_catalogue:reactivate",
+            args=(catalogue_service.pk,),
+        )
+    )
+
+    catalogue_service.refresh_from_db()
+
+    assert reactivate_response.status_code == 302
+    assert catalogue_service.is_active

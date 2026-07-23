@@ -8,6 +8,8 @@ from django.core.paginator import Paginator
 from django.forms.forms import BaseForm
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import employee_permission_required
 from apps.accounts.models import User
@@ -17,6 +19,7 @@ from apps.service_catalogue.constants import (
 from apps.service_catalogue.forms import (
     ServiceCreateForm,
     ServicePriceChangeForm,
+    ServiceUpdateForm,
 )
 from apps.service_catalogue.models import Service
 from apps.service_catalogue.selectors import (
@@ -29,8 +32,12 @@ from apps.service_catalogue.selectors import (
 from apps.service_catalogue.services.catalogue import (
     ChangeServicePriceCommand,
     CreateServiceCommand,
+    UpdateServiceCommand,
     change_service_price,
     create_service,
+    deactivate_service,
+    reactivate_service,
+    update_service,
 )
 from apps.vehicles.constants import VehicleCategory
 
@@ -158,7 +165,89 @@ def service_create(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "service_catalogue/service_form.html",
-        {"form": form},
+        {
+            "form": form,
+            "page_title": "Add service",
+            "page_description": (
+                "Define the service, supported vehicle categories, "
+                "and its initial price."
+            ),
+            "submit_label": "Add service",
+            "cancel_url": reverse("service_catalogue:list"),
+        },
+    )
+
+
+@employee_permission_required(ServicePermissionName.CHANGE_SERVICE.value)
+def service_update(
+    request: HttpRequest,
+    service_id: int,
+) -> HttpResponse:
+    """Update a service definition and its applicability."""
+
+    service = _get_service_or_404(service_id=service_id)
+
+    if request.method == "POST":
+        form = ServiceUpdateForm(
+            request.POST,
+            instance=service,
+        )
+
+        if form.is_valid():
+            categories = tuple(
+                VehicleCategory(value)
+                for value in form.cleaned_data["applicable_categories"]
+            )
+
+            try:
+                updated_service = update_service(
+                    actor=cast(User, request.user),
+                    service_id=service_id,
+                    command=UpdateServiceCommand(
+                        code=form.cleaned_data["code"],
+                        name=form.cleaned_data["name"],
+                        description=form.cleaned_data["description"],
+                        estimated_duration_minutes=(
+                            form.cleaned_data["estimated_duration_minutes"]
+                        ),
+                        applicable_categories=categories,
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (f"Service {updated_service.code} was updated successfully."),
+                )
+
+                return redirect(
+                    "service_catalogue:detail",
+                    service_id=service_id,
+                )
+    else:
+        form = ServiceUpdateForm(instance=service)
+
+    return render(
+        request,
+        "service_catalogue/service_form.html",
+        {
+            "form": form,
+            "service": service,
+            "page_title": "Edit service",
+            "page_description": (
+                "Update the service definition and applicable "
+                "vehicle categories. Price history is unchanged."
+            ),
+            "submit_label": "Save changes",
+            "cancel_url": reverse(
+                "service_catalogue:detail",
+                args=(service_id,),
+            ),
+        },
     )
 
 
@@ -241,4 +330,67 @@ def service_change_price(
             "current_price": current_price,
             "form": form,
         },
+    )
+
+
+@employee_permission_required(ServicePermissionName.DEACTIVATE_SERVICE.value)
+@require_POST
+def service_deactivate(
+    request: HttpRequest,
+    service_id: int,
+) -> HttpResponse:
+    """Deactivate a service without deleting its history."""
+
+    _get_service_or_404(service_id=service_id)
+
+    service = deactivate_service(
+        actor=cast(User, request.user),
+        service_id=service_id,
+    )
+
+    messages.success(
+        request,
+        f"Service {service.code} was deactivated.",
+    )
+
+    return redirect(
+        "service_catalogue:detail",
+        service_id=service_id,
+    )
+
+
+@employee_permission_required(ServicePermissionName.REACTIVATE_SERVICE.value)
+@require_POST
+def service_reactivate(
+    request: HttpRequest,
+    service_id: int,
+) -> HttpResponse:
+    """Reactivate a complete catalogue service."""
+
+    _get_service_or_404(service_id=service_id)
+
+    try:
+        service = reactivate_service(
+            actor=cast(User, request.user),
+            service_id=service_id,
+        )
+    except ValidationError as error:
+        messages.error(
+            request,
+            " ".join(error.messages),
+        )
+
+        return redirect(
+            "service_catalogue:detail",
+            service_id=service_id,
+        )
+
+    messages.success(
+        request,
+        f"Service {service.code} was reactivated.",
+    )
+
+    return redirect(
+        "service_catalogue:detail",
+        service_id=service_id,
     )

@@ -1,7 +1,7 @@
 {% extends "layouts/app.html" %}
 
 {% block title %}
-    Add Service | Oyera Auto Service
+    {{ page_title }} | Oyera Auto Service
 {% endblock %}
 
 {% block app_content %}
@@ -10,11 +10,10 @@
             Service catalogue
         </p>
 
-        <h1>Add service</h1>
+        <h1>{{ page_title }}</h1>
 
         <p class="page-header__description">
-            Define the service, supported vehicle categories,
-            and its initial price.
+            {{ page_description }}
         </p>
     </header>
 
@@ -56,7 +55,7 @@
             <div class="form-actions">
                 <a
                     class="button button--secondary"
-                    href="{% url 'service_catalogue:list' %}"
+                    href="{{ cancel_url }}"
                 >
                     Cancel
                 </a>
@@ -65,7 +64,7 @@
                     class="button button--primary"
                     type="submit"
                 >
-                    Add service
+                     {{ submit_label }}
                 </button>
             </div>
         </form>
