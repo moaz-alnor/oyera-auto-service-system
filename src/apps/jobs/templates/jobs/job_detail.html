@@ -1,0 +1,316 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ job_card.job_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ job_card.job_number }}
+            </p>
+
+            <h1>
+                {{ job_card.vehicle_registration_snapshot }}
+            </h1>
+
+            <p class="page-header__description">
+                {{ job_card.vehicle_make_snapshot }}
+                {{ job_card.vehicle_model_snapshot }}
+                — {{ job_card.customer_name_snapshot }}
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'jobs:list' %}"
+            >
+                Back to job cards
+            </a>
+
+            {% if job_card.status != "CANCELLED" %}
+                {% if perms.jobs.add_inspection %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'jobs:inspection_create' job_card.pk %}"
+                    >
+                        Add inspection
+                    </a>
+                {% endif %}
+
+                {% if perms.jobs.cancel_jobcard %}
+                    <a
+                        class="button button--danger"
+                        href="{% url 'jobs:cancel' job_card.pk %}"
+                    >
+                        Cancel job
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if perms.jobs.add_jobnote %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'jobs:note_create' job_card.pk %}"
+                >
+                    Add note
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+
+                <dd>
+                    {% if job_card.status == "CANCELLED" %}
+                        <span class="status-badge status-badge--inactive">
+                            Cancelled
+                        </span>
+                    {% elif job_card.status == "INSPECTED" %}
+                        <span class="status-badge">
+                            Inspected
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-badge--active">
+                            Open
+                        </span>
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Priority</dt>
+                <dd>{{ job_card.get_priority_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Arrival</dt>
+                <dd>
+                    {{ job_card.arrival_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Arrival mileage</dt>
+                <dd>
+                    {{ job_card.arrival_mileage }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Fuel level</dt>
+                <dd>{{ job_card.get_fuel_level_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Created by</dt>
+                <dd>{{ job_card.created_by }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card details-section">
+        <h2>Customer snapshot</h2>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Name</dt>
+                <dd>{{ job_card.customer_name_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Phone</dt>
+                <dd>
+                    {{ job_card.customer_phone_snapshot|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Email</dt>
+                <dd>
+                    {{ job_card.customer_email_snapshot|default:"Not provided" }}
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card details-section">
+        <h2>Vehicle snapshot</h2>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Registration</dt>
+                <dd>
+                    {{ job_card.vehicle_registration_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Make</dt>
+                <dd>{{ job_card.vehicle_make_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Model</dt>
+                <dd>{{ job_card.vehicle_model_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Year</dt>
+                <dd>
+                    {{ job_card.vehicle_year_snapshot|default:"Not specified" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Colour</dt>
+                <dd>
+                    {{ job_card.vehicle_color_snapshot|default:"Not specified" }}
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card details-section">
+        <h2>Customer complaint</h2>
+
+        <p>
+            {{ job_card.customer_complaint|linebreaksbr }}
+        </p>
+
+        {% if job_card.visible_condition %}
+            <h2>Visible vehicle condition</h2>
+
+            <p>
+                {{ job_card.visible_condition|linebreaksbr }}
+            </p>
+        {% endif %}
+
+        {% if job_card.status == "CANCELLED" %}
+            <div class="alert alert--error">
+                <strong>Cancellation reason:</strong>
+                {{ job_card.cancellation_reason|linebreaksbr }}
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card details-section">
+        <header class="page-header page-header--actions">
+            <div>
+                <h2>Inspections</h2>
+
+                <p class="page-header__description">
+                    Append-only technical inspection history.
+                </p>
+            </div>
+
+            {% if perms.jobs.add_inspection and job_card.status != "CANCELLED" %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'jobs:inspection_create' job_card.pk %}"
+                >
+                    Add inspection
+                </a>
+            {% endif %}
+        </header>
+
+        {% for inspection in inspections %}
+            <article class="details-section">
+                <h3>
+                    {{ inspection.get_inspection_type_display }}
+                </h3>
+
+                <p>
+                    <strong>Inspected by:</strong>
+                    {{ inspection.inspected_by }}
+                </p>
+
+                <p>
+                    <strong>Inspection date:</strong>
+                    {{ inspection.inspected_at|date:"d M Y, H:i" }}
+                </p>
+
+                <h4>Findings</h4>
+
+                <p>
+                    {{ inspection.findings|linebreaksbr }}
+                </p>
+
+                {% if inspection.safety_observations %}
+                    <h4>Safety observations</h4>
+
+                    <p>
+                        {{ inspection.safety_observations|linebreaksbr }}
+                    </p>
+                {% endif %}
+
+                {% if inspection.recommended_action %}
+                    <h4>Recommended action</h4>
+
+                    <p>
+                        {{ inspection.recommended_action|linebreaksbr }}
+                    </p>
+                {% endif %}
+            </article>
+        {% empty %}
+            <div class="empty-state">
+                <h3>No inspections recorded</h3>
+
+                <p>
+                    The vehicle has not yet been inspected for this visit.
+                </p>
+            </div>
+        {% endfor %}
+    </section>
+
+    <section class="card details-section">
+        <header class="page-header page-header--actions">
+            <div>
+                <h2>Job notes</h2>
+
+                <p class="page-header__description">
+                    Communication and internal operational history.
+                </p>
+            </div>
+
+            {% if perms.jobs.add_jobnote %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'jobs:note_create' job_card.pk %}"
+                >
+                    Add note
+                </a>
+            {% endif %}
+        </header>
+
+        {% for note in notes %}
+            <article class="details-section">
+                <h3>{{ note.get_note_type_display }}</h3>
+
+                <p>
+                    {{ note.content|linebreaksbr }}
+                </p>
+
+                <p>
+                    <small>
+                        Added by {{ note.created_by }}
+                        on {{ note.created_at|date:"d M Y, H:i" }}
+                    </small>
+                </p>
+            </article>
+        {% empty %}
+            <div class="empty-state">
+                <h3>No notes recorded</h3>
+
+                <p>
+                    No communication or internal notes have been added.
+                </p>
+            </div>
+        {% endfor %}
+    </section>
+{% endblock %}

@@ -43,6 +43,18 @@
                 Vehicles
             </a>
         {% endif %}
+        {% if perms.jobs.view_jobcard %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'jobs' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'jobs:list' %}"
+            >
+                Job cards
+            </a>
+        {% endif %}
         {% if perms.service_catalogue.view_service %}
             <a
                 class="sidebar-nav__link
