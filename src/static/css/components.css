@@ -464,3 +464,19 @@
         width: 100%;
     }
 }
+
+/* Multi-value checkbox fields */
+
+.checkbox-list {
+    display: grid;
+    gap: var(--space-2);
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.checkbox-list label {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+}

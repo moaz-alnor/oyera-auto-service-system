@@ -77,3 +77,22 @@ def normalize_service_name(value: str) -> str:
         )
 
     return normalized_value
+
+
+def normalize_service_code_search(value: str) -> str:
+    """Return a canonical value for partial service-code searches.
+
+    Unlike stored service-code validation, search input may contain
+    only part of a code.
+
+    Args:
+        value: Full or partial service-code search value.
+
+    Returns:
+        An uppercase letters-and-digits-only search value.
+    """
+
+    return _NON_ALPHANUMERIC_PATTERN.sub(
+        "",
+        value.upper(),
+    )

@@ -1,0 +1,149 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ service.code }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ service.code }}
+            </p>
+
+            <h1>{{ service.name }}</h1>
+
+            <p class="page-header__description">
+                Service-catalogue definition and historical prices.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'service_catalogue:list' %}"
+            >
+                Back to services
+            </a>
+
+            {% if perms.service_catalogue.change_service_price and service.is_active %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'service_catalogue:change_price' service.pk %}"
+                >
+                    Change price
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    {% if service.is_active %}
+                        Active
+                    {% else %}
+                        Inactive
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Estimated duration</dt>
+                <dd>
+                    {% if service.estimated_duration_minutes %}
+                        {{ service.estimated_duration_minutes }}
+                        minutes
+                    {% else %}
+                        Not estimated
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Current price</dt>
+                <dd>
+                    {% if current_price %}
+                        {{ current_price.currency }}
+                        {{ current_price.amount|floatformat:2 }}
+                    {% else %}
+                        No current price
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Applicable categories</dt>
+                <dd>
+                    {% for applicability in applicabilities %}
+                        <span class="status-badge">
+                            {{ applicability.get_vehicle_category_display }}
+                        </span>
+                    {% empty %}
+                        No categories configured
+                    {% endfor %}
+                </dd>
+            </div>
+        </dl>
+
+        {% if service.description %}
+            <div class="details-section">
+                <h2>Description</h2>
+                <p>{{ service.description|linebreaksbr }}</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card details-section">
+        <h2>Price history</h2>
+
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Amount</th>
+                        <th scope="col">Effective from</th>
+                        <th scope="col">Effective until</th>
+                        <th scope="col">Changed by</th>
+                        <th scope="col">Notes</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for price in price_history %}
+                        <tr>
+                            <td>
+                                {{ price.currency }}
+                                {{ price.amount|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                {{ price.effective_from|date:"d M Y, H:i" }}
+                            </td>
+
+                            <td>
+                                {% if price.effective_until %}
+                                    {{ price.effective_until|date:"d M Y, H:i" }}
+                                {% else %}
+                                    Current
+                                {% endif %}
+                            </td>
+
+                            <td>{{ price.changed_by }}</td>
+
+                            <td>{{ price.notes|default:"—" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5">
+                                No price history is available.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}
