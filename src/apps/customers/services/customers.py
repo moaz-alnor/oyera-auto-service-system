@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 
 from apps.accounts.models import User
@@ -11,6 +11,7 @@ from apps.customers.constants import (
     CustomerType,
 )
 from apps.customers.models import Customer
+from apps.vehicles.models import Vehicle
 
 
 @dataclass(frozen=True, slots=True)
@@ -178,6 +179,25 @@ def deactivate_customer(
     if not customer.is_active:
         return customer
 
+    active_vehicle_count = (
+        Vehicle.objects.select_for_update()
+        .filter(
+            current_owner_id=customer.pk,
+            is_active=True,
+        )
+        .count()
+    )
+
+    if active_vehicle_count:
+        raise ValidationError(
+            {
+                "is_active": (
+                    "This customer cannot be deactivated while they "
+                    f"own {active_vehicle_count} active vehicle(s). "
+                    "Transfer or deactivate those vehicles first."
+                )
+            }
+        )
     customer.is_active = False
     customer.updated_by = actor
     customer.save(

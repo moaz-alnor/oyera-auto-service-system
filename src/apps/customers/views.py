@@ -3,6 +3,7 @@
 from typing import cast
 
 from django.contrib import messages
+from django.core.exceptions import ValidationError
 from django.core.paginator import Paginator
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import redirect, render
@@ -247,14 +248,25 @@ def customer_deactivate(
     request: HttpRequest,
     customer_id: int,
 ) -> HttpResponse:
-    """Deactivate a customer without deleting their history."""
+    """Deactivate a customer when no active vehicle depends on them."""
 
     _get_customer_or_404(customer_id=customer_id)
 
-    customer = deactivate_customer(
-        actor=cast(User, request.user),
-        customer_id=customer_id,
-    )
+    try:
+        customer = deactivate_customer(
+            actor=cast(User, request.user),
+            customer_id=customer_id,
+        )
+    except ValidationError as error:
+        messages.error(
+            request,
+            " ".join(error.messages),
+        )
+
+        return redirect(
+            "customers:detail",
+            customer_id=customer_id,
+        )
 
     messages.success(
         request,

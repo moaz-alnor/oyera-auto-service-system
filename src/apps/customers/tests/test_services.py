@@ -2,7 +2,7 @@
 
 import pytest
 from django.contrib.auth.models import Group
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 
 from apps.accounts.constants import RoleName
 from apps.accounts.models import User
@@ -17,6 +17,8 @@ from apps.customers.services.customers import (
     register_customer,
     update_customer,
 )
+from apps.vehicles.constants import VehicleCategory
+from apps.vehicles.models import Vehicle
 
 
 @pytest.mark.django_db
@@ -183,3 +185,47 @@ def test_technician_cannot_update_customer() -> None:
                 phone_number="0700999999",
             ),
         )
+
+
+@pytest.mark.django_db
+def test_customer_with_active_vehicle_cannot_be_deactivated() -> None:
+    """Protect active vehicles from having an inactive current owner."""
+
+    ensure_default_roles()
+
+    administrator = User.objects.create_user(
+        username="customer.lifecycle.admin",
+        password="Strong-Test-Password-2026",
+    )
+    administrator.groups.add(Group.objects.get(name=RoleName.ADMINISTRATOR.value))
+
+    customer = register_customer(
+        actor=administrator,
+        command=RegisterCustomerCommand(
+            customer_type=CustomerType.INDIVIDUAL,
+            name="Daniel Kato",
+            phone_number="0700123456",
+        ),
+    )
+
+    Vehicle.objects.create(
+        vehicle_number="VEH-000001",
+        registration_number="UBD 245X",
+        normalized_registration_number="UBD245X",
+        current_owner=customer,
+        category=VehicleCategory.SMALL,
+        make="Toyota",
+        model="Corolla",
+        created_by=administrator,
+        updated_by=administrator,
+    )
+
+    with pytest.raises(ValidationError):
+        deactivate_customer(
+            actor=administrator,
+            customer_id=customer.pk,
+        )
+
+    customer.refresh_from_db()
+
+    assert customer.is_active
