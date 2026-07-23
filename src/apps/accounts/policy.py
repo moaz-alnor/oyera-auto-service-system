@@ -2,6 +2,9 @@
 
 from apps.accounts.constants import PermissionName, RoleName
 from apps.customers.constants import CustomerPermissionName
+from apps.product_catalogue.constants import (
+    ProductPermissionName,
+)
 from apps.service_catalogue.constants import (
     ServicePermissionName,
 )
@@ -33,6 +36,15 @@ ROLE_PERMISSION_POLICY: dict[
             ServicePermissionName.CHANGE_SERVICE_PRICE.value,
             ServicePermissionName.DEACTIVATE_SERVICE.value,
             ServicePermissionName.REACTIVATE_SERVICE.value,
+            ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
+            ProductPermissionName.ADD_PRODUCT_CATEGORY.value,
+            ProductPermissionName.CHANGE_PRODUCT_CATEGORY.value,
+            ProductPermissionName.VIEW_PRODUCT.value,
+            ProductPermissionName.ADD_PRODUCT.value,
+            ProductPermissionName.CHANGE_PRODUCT.value,
+            ProductPermissionName.CHANGE_PRODUCT_PRICE.value,
+            ProductPermissionName.DEACTIVATE_PRODUCT.value,
+            ProductPermissionName.REACTIVATE_PRODUCT.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -45,18 +57,24 @@ ROLE_PERMISSION_POLICY: dict[
             VehiclePermissionName.CHANGE_VEHICLE.value,
             VehiclePermissionName.TRANSFER_VEHICLE_OWNER.value,
             ServicePermissionName.VIEW_SERVICE.value,
+            ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
+            ProductPermissionName.VIEW_PRODUCT.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
         {
             VehiclePermissionName.VIEW_VEHICLE.value,
             ServicePermissionName.VIEW_SERVICE.value,
+            ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
+            ProductPermissionName.VIEW_PRODUCT.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
         {
             VehiclePermissionName.VIEW_VEHICLE.value,
             ServicePermissionName.VIEW_SERVICE.value,
+            ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
+            ProductPermissionName.VIEW_PRODUCT.value,
         }
     ),
     RoleName.CASHIER: frozenset(
@@ -66,6 +84,8 @@ ROLE_PERMISSION_POLICY: dict[
             CustomerPermissionName.CHANGE_CUSTOMER.value,
             VehiclePermissionName.VIEW_VEHICLE.value,
             ServicePermissionName.VIEW_SERVICE.value,
+            ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
+            ProductPermissionName.VIEW_PRODUCT.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -78,6 +98,15 @@ ROLE_PERMISSION_POLICY: dict[
             ServicePermissionName.CHANGE_SERVICE_PRICE.value,
             ServicePermissionName.DEACTIVATE_SERVICE.value,
             ServicePermissionName.REACTIVATE_SERVICE.value,
+            ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
+            ProductPermissionName.ADD_PRODUCT_CATEGORY.value,
+            ProductPermissionName.CHANGE_PRODUCT_CATEGORY.value,
+            ProductPermissionName.VIEW_PRODUCT.value,
+            ProductPermissionName.ADD_PRODUCT.value,
+            ProductPermissionName.CHANGE_PRODUCT.value,
+            ProductPermissionName.CHANGE_PRODUCT_PRICE.value,
+            ProductPermissionName.DEACTIVATE_PRODUCT.value,
+            ProductPermissionName.REACTIVATE_PRODUCT.value,
         }
     ),
 }
