@@ -2,6 +2,7 @@
 
 from apps.accounts.constants import PermissionName, RoleName
 from apps.customers.constants import CustomerPermissionName
+from apps.jobs.constants import JobPermissionName
 from apps.product_catalogue.constants import (
     ProductPermissionName,
 )
@@ -45,6 +46,14 @@ ROLE_PERMISSION_POLICY: dict[
             ProductPermissionName.CHANGE_PRODUCT_PRICE.value,
             ProductPermissionName.DEACTIVATE_PRODUCT.value,
             ProductPermissionName.REACTIVATE_PRODUCT.value,
+            JobPermissionName.VIEW_JOB_CARD.value,
+            JobPermissionName.ADD_JOB_CARD.value,
+            JobPermissionName.CHANGE_JOB_CARD.value,
+            JobPermissionName.CANCEL_JOB_CARD.value,
+            JobPermissionName.VIEW_INSPECTION.value,
+            JobPermissionName.ADD_INSPECTION.value,
+            JobPermissionName.VIEW_JOB_NOTE.value,
+            JobPermissionName.ADD_JOB_NOTE.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -59,6 +68,13 @@ ROLE_PERMISSION_POLICY: dict[
             ServicePermissionName.VIEW_SERVICE.value,
             ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
             ProductPermissionName.VIEW_PRODUCT.value,
+            JobPermissionName.VIEW_JOB_CARD.value,
+            JobPermissionName.ADD_JOB_CARD.value,
+            JobPermissionName.CHANGE_JOB_CARD.value,
+            JobPermissionName.CANCEL_JOB_CARD.value,
+            JobPermissionName.VIEW_INSPECTION.value,
+            JobPermissionName.VIEW_JOB_NOTE.value,
+            JobPermissionName.ADD_JOB_NOTE.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
@@ -67,6 +83,11 @@ ROLE_PERMISSION_POLICY: dict[
             ServicePermissionName.VIEW_SERVICE.value,
             ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
             ProductPermissionName.VIEW_PRODUCT.value,
+            JobPermissionName.VIEW_JOB_CARD.value,
+            JobPermissionName.VIEW_INSPECTION.value,
+            JobPermissionName.ADD_INSPECTION.value,
+            JobPermissionName.VIEW_JOB_NOTE.value,
+            JobPermissionName.ADD_JOB_NOTE.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
@@ -75,6 +96,11 @@ ROLE_PERMISSION_POLICY: dict[
             ServicePermissionName.VIEW_SERVICE.value,
             ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
             ProductPermissionName.VIEW_PRODUCT.value,
+            JobPermissionName.VIEW_JOB_CARD.value,
+            JobPermissionName.VIEW_INSPECTION.value,
+            JobPermissionName.ADD_INSPECTION.value,
+            JobPermissionName.VIEW_JOB_NOTE.value,
+            JobPermissionName.ADD_JOB_NOTE.value,
         }
     ),
     RoleName.CASHIER: frozenset(
@@ -86,6 +112,9 @@ ROLE_PERMISSION_POLICY: dict[
             ServicePermissionName.VIEW_SERVICE.value,
             ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
             ProductPermissionName.VIEW_PRODUCT.value,
+            JobPermissionName.VIEW_JOB_CARD.value,
+            JobPermissionName.VIEW_INSPECTION.value,
+            JobPermissionName.VIEW_JOB_NOTE.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -107,6 +136,14 @@ ROLE_PERMISSION_POLICY: dict[
             ProductPermissionName.CHANGE_PRODUCT_PRICE.value,
             ProductPermissionName.DEACTIVATE_PRODUCT.value,
             ProductPermissionName.REACTIVATE_PRODUCT.value,
+            JobPermissionName.VIEW_JOB_CARD.value,
+            JobPermissionName.ADD_JOB_CARD.value,
+            JobPermissionName.CHANGE_JOB_CARD.value,
+            JobPermissionName.CANCEL_JOB_CARD.value,
+            JobPermissionName.VIEW_INSPECTION.value,
+            JobPermissionName.ADD_INSPECTION.value,
+            JobPermissionName.VIEW_JOB_NOTE.value,
+            JobPermissionName.ADD_JOB_NOTE.value,
         }
     ),
 }
