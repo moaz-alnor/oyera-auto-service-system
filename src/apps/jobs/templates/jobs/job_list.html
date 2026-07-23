@@ -1,0 +1,234 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Job Cards | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Workshop operations
+            </p>
+
+            <h1>Job cards</h1>
+
+            <p class="page-header__description">
+                Search vehicle visits and monitor their operational status.
+            </p>
+        </div>
+
+        {% if perms.jobs.add_jobcard %}
+            <a
+                class="button button--primary"
+                href="{% url 'jobs:create' %}"
+            >
+                Open job card
+            </a>
+        {% endif %}
+    </header>
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="job-search"
+                >
+                    Search job cards
+                </label>
+
+                <input
+                    id="job-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Job number, customer, vehicle, or complaint"
+                >
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="status-filter"
+                >
+                    Status
+                </label>
+
+                <select
+                    id="status-filter"
+                    class="form-control"
+                    name="status"
+                >
+                    <option value="">All statuses</option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_status == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="priority-filter"
+                >
+                    Priority
+                </label>
+
+                <select
+                    id="priority-filter"
+                    class="form-control"
+                    name="priority"
+                >
+                    <option value="">All priorities</option>
+
+                    {% for value, label in priority_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_priority == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <button
+                class="button button--secondary"
+                type="submit"
+            >
+                Search
+            </button>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Job number</th>
+                            <th scope="col">Vehicle</th>
+                            <th scope="col">Customer</th>
+                            <th scope="col">Arrival</th>
+                            <th scope="col">Priority</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for job_card in page.object_list %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'jobs:detail' job_card.pk %}"
+                                    >
+                                        {{ job_card.job_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ job_card.vehicle_registration_snapshot }}
+                                    <br>
+                                    <small>
+                                        {{ job_card.vehicle_make_snapshot }}
+                                        {{ job_card.vehicle_model_snapshot }}
+                                    </small>
+                                </td>
+
+                                <td>
+                                    {{ job_card.customer_name_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ job_card.arrival_at|date:"d M Y, H:i" }}
+                                </td>
+
+                                <td>
+                                    {% if job_card.priority == "URGENT" %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Urgent
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge">
+                                            Normal
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if job_card.status == "CANCELLED" %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Cancelled
+                                        </span>
+                                    {% elif job_card.status == "INSPECTED" %}
+                                        <span class="status-badge">
+                                            Inspected
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--active">
+                                            Open
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.has_other_pages %}
+                <nav
+                    class="pagination"
+                    aria-label="Job-card pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&priority={{ selected_priority|urlencode }}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }} of
+                        {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&priority={{ selected_priority|urlencode }}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No job cards found</h2>
+
+                <p>
+                    Adjust the filters or open the first vehicle job card.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

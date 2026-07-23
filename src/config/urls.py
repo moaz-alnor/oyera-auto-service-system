@@ -22,4 +22,8 @@ urlpatterns = [
         "products/",
         include("apps.product_catalogue.urls"),
     ),
+    path(
+        "jobs/",
+        include("apps.jobs.urls"),
+    ),
 ]

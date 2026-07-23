@@ -1,0 +1,73 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Add Inspection | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            {{ job_card.job_number }}
+        </p>
+
+        <h1>Add inspection</h1>
+
+        <p class="page-header__description">
+            Record technical findings for
+            {{ job_card.vehicle_registration_snapshot }}.
+        </p>
+    </header>
+
+    <section class="card">
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+        >
+            {% csrf_token %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{% url 'jobs:detail' job_card.pk %}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Add inspection
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
