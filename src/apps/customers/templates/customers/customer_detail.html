@@ -118,5 +118,22 @@
                 <p>{{ customer.notes|linebreaksbr }}</p>
             </div>
         {% endif %}
+        {% if perms.vehicles.view_vehicle %}
+            <a
+                class="button button--secondary"
+                href="{% url 'vehicles:list' %}?owner={{ customer.pk }}"
+            >
+                View vehicles
+            </a>
+        {% endif %}
+
+        {% if perms.vehicles.add_vehicle and customer.is_active %}
+            <a
+                class="button button--primary"
+                href="{% url 'vehicles:create' %}?owner={{ customer.pk }}"
+            >
+                Register vehicle
+            </a>
+        {% endif %}
     </section>
 {% endblock %}

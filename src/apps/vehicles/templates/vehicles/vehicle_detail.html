@@ -1,0 +1,230 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ vehicle.registration_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ vehicle.vehicle_number }}
+            </p>
+
+            <h1>{{ vehicle.registration_number }}</h1>
+
+            <p class="page-header__description">
+                {{ vehicle.make }} {{ vehicle.model }}
+            </p>
+        </div>
+
+        <div class="page-actions">
+        {% if perms.vehicles.change_vehicle %}
+            <a
+                class="button button--secondary"
+                href="{% url 'vehicles:update' vehicle.pk %}"
+            >
+                Edit vehicle
+            </a>
+        {% endif %}
+
+        {% if vehicle.is_active %}
+            {% if perms.vehicles.transfer_vehicle_owner %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'vehicles:transfer_owner' vehicle.pk %}"
+                >
+                    Transfer ownership
+                </a>
+            {% endif %}
+
+            {% if perms.vehicles.deactivate_vehicle %}
+                <form
+                    class="inline-form"
+                    method="post"
+                    action="{% url 'vehicles:deactivate' vehicle.pk %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        class="button button--danger"
+                        type="submit"
+                    >
+                        Deactivate
+                    </button>
+                </form>
+            {% endif %}
+        {% else %}
+            {% if perms.vehicles.reactivate_vehicle %}
+                <form
+                    class="inline-form"
+                    method="post"
+                    action="{% url 'vehicles:reactivate' vehicle.pk %}"
+                >
+                    {% csrf_token %}
+
+                    <button
+                        class="button button--primary"
+                        type="submit"
+                    >
+                        Reactivate
+                    </button>
+                </form>
+            {% endif %}
+        {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    {% if vehicle.is_active %}
+                        Active
+                    {% else %}
+                        Inactive
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Current owner</dt>
+                <dd>
+                    <a
+                        href="{% url 'customers:detail' vehicle.current_owner.pk %}"
+                    >
+                        {{ vehicle.current_owner }}
+                    </a>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Category</dt>
+                <dd>{{ vehicle.get_category_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Make and model</dt>
+                <dd>{{ vehicle.make }} {{ vehicle.model }}</dd>
+            </div>
+
+            <div>
+                <dt>Manufacturing year</dt>
+                <dd>
+                    {{ vehicle.year|default_if_none:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Current mileage</dt>
+                <dd>
+                    {{ vehicle.current_mileage|default_if_none:"Not recorded" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Fuel type</dt>
+                <dd>
+                    {% if vehicle.fuel_type %}
+                        {{ vehicle.get_fuel_type_display }}
+                    {% else %}
+                        Not provided
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Colour</dt>
+                <dd>{{ vehicle.color|default:"Not provided" }}</dd>
+            </div>
+
+            <div>
+                <dt>Engine number</dt>
+                <dd>
+                    {{ vehicle.engine_number|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Chassis number</dt>
+                <dd>
+                    {{ vehicle.chassis_number|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>VIN</dt>
+                <dd>{{ vehicle.vin|default:"Not provided" }}</dd>
+            </div>
+
+            <div>
+                <dt>Registered by</dt>
+                <dd>{{ vehicle.created_by }}</dd>
+            </div>
+        </dl>
+
+        {% if vehicle.notes %}
+            <div class="details-section">
+                <h2>Vehicle notes</h2>
+                <p>{{ vehicle.notes|linebreaksbr }}</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card details-section">
+        <h2>Ownership history</h2>
+
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Owner</th>
+                        <th scope="col">Started</th>
+                        <th scope="col">Ended</th>
+                        <th scope="col">Changed by</th>
+                        <th scope="col">Notes</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for ownership in ownership_history %}
+                        <tr>
+                            <td>
+                                <a
+                                    href="{% url 'customers:detail' ownership.owner.pk %}"
+                                >
+                                    {{ ownership.owner }}
+                                </a>
+                            </td>
+
+                            <td>
+                                {{ ownership.started_at|date:"d M Y, H:i" }}
+                            </td>
+
+                            <td>
+                                {% if ownership.ended_at %}
+                                    {{ ownership.ended_at|date:"d M Y, H:i" }}
+                                {% else %}
+                                    Current owner
+                                {% endif %}
+                            </td>
+
+                            <td>{{ ownership.changed_by }}</td>
+
+                            <td>
+                                {{ ownership.notes|default:"—" }}
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5">
+                                No ownership history is available.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

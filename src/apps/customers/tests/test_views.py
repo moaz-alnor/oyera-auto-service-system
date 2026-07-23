@@ -13,6 +13,8 @@ from apps.customers.services.customers import (
     RegisterCustomerCommand,
     register_customer,
 )
+from apps.vehicles.constants import VehicleCategory
+from apps.vehicles.models import Vehicle
 
 
 @pytest.fixture
@@ -323,3 +325,40 @@ def test_administrator_can_reactivate_customer(
 
     assert response.status_code == 302
     assert existing_customer.is_active
+
+
+@pytest.mark.django_db
+def test_customer_deactivation_is_blocked_by_active_vehicle(
+    client,
+    administrator: User,
+    existing_customer: Customer,
+) -> None:
+    """Keep the customer active while an active vehicle uses them."""
+
+    Vehicle.objects.create(
+        vehicle_number="VEH-000001",
+        registration_number="UBD 245X",
+        normalized_registration_number="UBD245X",
+        current_owner=existing_customer,
+        category=VehicleCategory.SMALL,
+        make="Toyota",
+        model="Corolla",
+        created_by=administrator,
+        updated_by=administrator,
+    )
+
+    client.force_login(administrator)
+
+    response = client.post(
+        reverse(
+            "customers:deactivate",
+            args=(existing_customer.pk,),
+        ),
+        follow=True,
+    )
+
+    existing_customer.refresh_from_db()
+
+    assert response.status_code == 200
+    assert existing_customer.is_active
+    assert b"cannot be deactivated" in response.content

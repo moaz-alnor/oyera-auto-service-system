@@ -1,0 +1,196 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Vehicles | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Vehicle management
+            </p>
+
+            <h1>Vehicles</h1>
+
+            <p class="page-header__description">
+                Search registrations, owners, makes, and models.
+            </p>
+        </div>
+
+        {% if perms.vehicles.add_vehicle %}
+            <a
+                class="button button--primary"
+                href="{% url 'vehicles:create' %}"
+            >
+                Register vehicle
+            </a>
+        {% endif %}
+    </header>
+
+    {% if owner_filter %}
+        <section class="alert alert--info">
+            Showing vehicles currently owned by
+            <strong>{{ owner_filter }}</strong>.
+
+            <a href="{% url 'vehicles:list' %}">
+                Clear owner filter
+            </a>
+        </section>
+    {% endif %}
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            {% if owner_filter %}
+                <input
+                    type="hidden"
+                    name="owner"
+                    value="{{ owner_filter.pk }}"
+                >
+            {% endif %}
+
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="vehicle-search"
+                >
+                    Search vehicles
+                </label>
+
+                <input
+                    id="vehicle-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Registration, owner, make, or model"
+                >
+            </div>
+
+            <label class="checkbox-field">
+                <input
+                    type="checkbox"
+                    name="include_inactive"
+                    value="1"
+                    {% if include_inactive %}checked{% endif %}
+                >
+
+                Include inactive vehicles
+            </label>
+
+            <button
+                class="button button--secondary"
+                type="submit"
+            >
+                Search
+            </button>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Registration</th>
+                            <th scope="col">Vehicle</th>
+                            <th scope="col">Owner</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Mileage</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for vehicle in page.object_list %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'vehicles:detail' vehicle.pk %}"
+                                    >
+                                        {{ vehicle.registration_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ vehicle.make }}
+                                    {{ vehicle.model }}
+                                </td>
+
+                                <td>
+                                    <a
+                                        href="{% url 'customers:detail' vehicle.current_owner.pk %}"
+                                    >
+                                        {{ vehicle.current_owner.name }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ vehicle.get_category_display }}
+                                </td>
+
+                                <td>
+                                    {{ vehicle.current_mileage|default_if_none:"Not recorded" }}
+                                </td>
+
+                                <td>
+                                    {% if vehicle.is_active %}
+                                        <span class="status-badge status-badge--active">
+                                            Active
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Inactive
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.has_other_pages %}
+                <nav
+                    class="pagination"
+                    aria-label="Vehicle pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}{% if owner_filter %}&owner={{ owner_filter.pk }}{% endif %}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }} of
+                        {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}{% if owner_filter %}&owner={{ owner_filter.pk }}{% endif %}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No vehicles found</h2>
+
+                <p>
+                    Adjust the search or register a vehicle.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

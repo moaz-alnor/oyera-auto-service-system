@@ -1,0 +1,422 @@
+"""Tests for vehicle application services."""
+
+import pytest
+from django.contrib.auth.models import Group
+from django.core.exceptions import PermissionDenied, ValidationError
+
+from apps.accounts.constants import RoleName
+from apps.accounts.models import User
+from apps.accounts.services.roles import ensure_default_roles
+from apps.customers.constants import CustomerType
+from apps.customers.models import Customer
+from apps.vehicles.constants import VehicleCategory
+from apps.vehicles.models import VehicleOwnership
+from apps.vehicles.services.vehicles import (
+    RegisterVehicleCommand,
+    TransferVehicleOwnershipCommand,
+    UpdateVehicleCommand,
+    deactivate_vehicle,
+    reactivate_vehicle,
+    register_vehicle,
+    transfer_vehicle_ownership,
+    update_vehicle,
+)
+
+
+def create_customer(
+    *,
+    actor: User,
+    number: str,
+    name: str,
+    phone: str,
+) -> Customer:
+    """Create a customer for a vehicle service test."""
+
+    return Customer.objects.create(
+        customer_number=number,
+        customer_type=CustomerType.INDIVIDUAL,
+        name=name,
+        phone_number=phone,
+        normalized_phone_number=phone,
+        created_by=actor,
+        updated_by=actor,
+    )
+
+
+@pytest.mark.django_db
+def test_receptionist_can_register_vehicle() -> None:
+    """Register a vehicle with an initial ownership record."""
+
+    ensure_default_roles()
+
+    receptionist = User.objects.create_user(
+        username="vehicle.receptionist",
+        password="Strong-Test-Password-2026",
+    )
+    receptionist.groups.add(Group.objects.get(name=RoleName.RECEPTIONIST.value))
+
+    owner = create_customer(
+        actor=receptionist,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+
+    vehicle = register_vehicle(
+        actor=receptionist,
+        command=RegisterVehicleCommand(
+            owner_id=owner.pk,
+            registration_number="UBD-245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla",
+            year=2020,
+            current_mileage=45000,
+        ),
+    )
+
+    ownership = VehicleOwnership.objects.get(
+        vehicle=vehicle,
+        ended_at__isnull=True,
+    )
+
+    assert vehicle.vehicle_number == "VEH-000001"
+    assert vehicle.normalized_registration_number == "UBD245X"
+    assert vehicle.current_owner == owner
+    assert ownership.owner == owner
+
+
+@pytest.mark.django_db
+def test_duplicate_registration_is_rejected() -> None:
+    """Reject differently formatted versions of one registration."""
+
+    ensure_default_roles()
+
+    receptionist = User.objects.create_user(
+        username="duplicate.receptionist",
+        password="Strong-Test-Password-2026",
+    )
+    receptionist.groups.add(Group.objects.get(name=RoleName.RECEPTIONIST.value))
+
+    owner = create_customer(
+        actor=receptionist,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+
+    register_vehicle(
+        actor=receptionist,
+        command=RegisterVehicleCommand(
+            owner_id=owner.pk,
+            registration_number="UBD 245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla",
+        ),
+    )
+
+    with pytest.raises(ValidationError):
+        register_vehicle(
+            actor=receptionist,
+            command=RegisterVehicleCommand(
+                owner_id=owner.pk,
+                registration_number="ubd-245x",
+                category=VehicleCategory.SMALL,
+                make="Toyota",
+                model="Corolla",
+            ),
+        )
+
+
+@pytest.mark.django_db
+def test_technician_cannot_register_vehicle() -> None:
+    """Reject vehicle registration by a technician."""
+
+    ensure_default_roles()
+
+    administrator = User.objects.create_user(
+        username="vehicle.owner.creator",
+        password="Strong-Test-Password-2026",
+    )
+    administrator.groups.add(Group.objects.get(name=RoleName.ADMINISTRATOR.value))
+
+    technician = User.objects.create_user(
+        username="vehicle.technician",
+        password="Strong-Test-Password-2026",
+    )
+    technician.groups.add(Group.objects.get(name=RoleName.TECHNICIAN.value))
+
+    owner = create_customer(
+        actor=administrator,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+
+    with pytest.raises(PermissionDenied):
+        register_vehicle(
+            actor=technician,
+            command=RegisterVehicleCommand(
+                owner_id=owner.pk,
+                registration_number="UBD 245X",
+                category=VehicleCategory.SMALL,
+                make="Toyota",
+                model="Corolla",
+            ),
+        )
+
+
+@pytest.mark.django_db
+def test_receptionist_can_transfer_vehicle_ownership() -> None:
+    """Close the previous ownership and create a new active one."""
+
+    ensure_default_roles()
+
+    receptionist = User.objects.create_user(
+        username="transfer.receptionist",
+        password="Strong-Test-Password-2026",
+    )
+    receptionist.groups.add(Group.objects.get(name=RoleName.RECEPTIONIST.value))
+
+    first_owner = create_customer(
+        actor=receptionist,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+    second_owner = create_customer(
+        actor=receptionist,
+        number="CUS-000002",
+        name="Grace Namusoke",
+        phone="0770123456",
+    )
+
+    vehicle = register_vehicle(
+        actor=receptionist,
+        command=RegisterVehicleCommand(
+            owner_id=first_owner.pk,
+            registration_number="UBD 245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla",
+        ),
+    )
+
+    transferred_vehicle = transfer_vehicle_ownership(
+        actor=receptionist,
+        vehicle_id=vehicle.pk,
+        command=TransferVehicleOwnershipCommand(
+            new_owner_id=second_owner.pk,
+            notes="Vehicle sold to the new owner.",
+        ),
+    )
+
+    ownership_history = VehicleOwnership.objects.filter(vehicle=vehicle).order_by(
+        "started_at"
+    )
+
+    assert transferred_vehicle.current_owner == second_owner
+    assert ownership_history.count() == 2
+    assert ownership_history.filter(
+        owner=first_owner,
+        ended_at__isnull=False,
+    ).exists()
+    assert ownership_history.filter(
+        owner=second_owner,
+        ended_at__isnull=True,
+    ).exists()
+
+
+@pytest.mark.django_db
+def test_receptionist_can_update_vehicle() -> None:
+    """Update vehicle details without changing its owner."""
+
+    ensure_default_roles()
+
+    receptionist = User.objects.create_user(
+        username="vehicle.update.receptionist",
+        password="Strong-Test-Password-2026",
+    )
+    receptionist.groups.add(Group.objects.get(name=RoleName.RECEPTIONIST.value))
+
+    owner = create_customer(
+        actor=receptionist,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+
+    vehicle = register_vehicle(
+        actor=receptionist,
+        command=RegisterVehicleCommand(
+            owner_id=owner.pk,
+            registration_number="UBD 245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla",
+            current_mileage=45000,
+        ),
+    )
+
+    updated_vehicle = update_vehicle(
+        actor=receptionist,
+        vehicle_id=vehicle.pk,
+        command=UpdateVehicleCommand(
+            registration_number="UBD-245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla Cross",
+            current_mileage=47000,
+        ),
+    )
+
+    assert updated_vehicle.model == "Corolla Cross"
+    assert updated_vehicle.current_mileage == 47000
+    assert updated_vehicle.current_owner == owner
+
+
+@pytest.mark.django_db
+def test_vehicle_mileage_cannot_decrease() -> None:
+    """Reject an operational mileage value lower than the current one."""
+
+    ensure_default_roles()
+
+    receptionist = User.objects.create_user(
+        username="vehicle.mileage.receptionist",
+        password="Strong-Test-Password-2026",
+    )
+    receptionist.groups.add(Group.objects.get(name=RoleName.RECEPTIONIST.value))
+
+    owner = create_customer(
+        actor=receptionist,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+
+    vehicle = register_vehicle(
+        actor=receptionist,
+        command=RegisterVehicleCommand(
+            owner_id=owner.pk,
+            registration_number="UBD 245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla",
+            current_mileage=45000,
+        ),
+    )
+
+    with pytest.raises(ValidationError):
+        update_vehicle(
+            actor=receptionist,
+            vehicle_id=vehicle.pk,
+            command=UpdateVehicleCommand(
+                registration_number="UBD 245X",
+                category=VehicleCategory.SMALL,
+                make="Toyota",
+                model="Corolla",
+                current_mileage=44000,
+            ),
+        )
+
+
+@pytest.mark.django_db
+def test_inactive_vehicle_cannot_transfer_ownership() -> None:
+    """Prevent ownership transfer until a vehicle is reactivated."""
+
+    ensure_default_roles()
+
+    administrator = User.objects.create_user(
+        username="inactive.vehicle.admin",
+        password="Strong-Test-Password-2026",
+    )
+    administrator.groups.add(Group.objects.get(name=RoleName.ADMINISTRATOR.value))
+
+    first_owner = create_customer(
+        actor=administrator,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+    second_owner = create_customer(
+        actor=administrator,
+        number="CUS-000002",
+        name="Grace Namusoke",
+        phone="0770123456",
+    )
+
+    vehicle = register_vehicle(
+        actor=administrator,
+        command=RegisterVehicleCommand(
+            owner_id=first_owner.pk,
+            registration_number="UBD 245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla",
+        ),
+    )
+
+    deactivate_vehicle(
+        actor=administrator,
+        vehicle_id=vehicle.pk,
+    )
+
+    with pytest.raises(ValidationError):
+        transfer_vehicle_ownership(
+            actor=administrator,
+            vehicle_id=vehicle.pk,
+            command=TransferVehicleOwnershipCommand(
+                new_owner_id=second_owner.pk,
+            ),
+        )
+
+
+@pytest.mark.django_db
+def test_vehicle_requires_active_owner_for_reactivation() -> None:
+    """Prevent reactivation while the current owner is inactive."""
+
+    ensure_default_roles()
+
+    administrator = User.objects.create_user(
+        username="reactivate.vehicle.admin",
+        password="Strong-Test-Password-2026",
+    )
+    administrator.groups.add(Group.objects.get(name=RoleName.ADMINISTRATOR.value))
+
+    owner = create_customer(
+        actor=administrator,
+        number="CUS-000001",
+        name="Daniel Kato",
+        phone="0700123456",
+    )
+
+    vehicle = register_vehicle(
+        actor=administrator,
+        command=RegisterVehicleCommand(
+            owner_id=owner.pk,
+            registration_number="UBD 245X",
+            category=VehicleCategory.SMALL,
+            make="Toyota",
+            model="Corolla",
+        ),
+    )
+
+    deactivate_vehicle(
+        actor=administrator,
+        vehicle_id=vehicle.pk,
+    )
+
+    owner.is_active = False
+    owner.save(
+        update_fields=(
+            "is_active",
+            "updated_at",
+        )
+    )
+
+    with pytest.raises(ValidationError):
+        reactivate_vehicle(
+            actor=administrator,
+            vehicle_id=vehicle.pk,
+        )

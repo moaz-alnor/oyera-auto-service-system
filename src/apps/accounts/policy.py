@@ -2,6 +2,7 @@
 
 from apps.accounts.constants import PermissionName, RoleName
 from apps.customers.constants import CustomerPermissionName
+from apps.vehicles.constants import VehiclePermissionName
 
 ROLE_PERMISSION_POLICY: dict[
     RoleName,
@@ -17,6 +18,12 @@ ROLE_PERMISSION_POLICY: dict[
             CustomerPermissionName.CHANGE_CUSTOMER.value,
             CustomerPermissionName.DEACTIVATE_CUSTOMER.value,
             CustomerPermissionName.REACTIVATE_CUSTOMER.value,
+            VehiclePermissionName.VIEW_VEHICLE.value,
+            VehiclePermissionName.ADD_VEHICLE.value,
+            VehiclePermissionName.CHANGE_VEHICLE.value,
+            VehiclePermissionName.TRANSFER_VEHICLE_OWNER.value,
+            VehiclePermissionName.DEACTIVATE_VEHICLE.value,
+            VehiclePermissionName.REACTIVATE_VEHICLE.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -24,20 +31,34 @@ ROLE_PERMISSION_POLICY: dict[
             CustomerPermissionName.VIEW_CUSTOMER.value,
             CustomerPermissionName.ADD_CUSTOMER.value,
             CustomerPermissionName.CHANGE_CUSTOMER.value,
+            VehiclePermissionName.VIEW_VEHICLE.value,
+            VehiclePermissionName.ADD_VEHICLE.value,
+            VehiclePermissionName.CHANGE_VEHICLE.value,
+            VehiclePermissionName.TRANSFER_VEHICLE_OWNER.value,
         }
     ),
-    RoleName.SENIOR_TECHNICIAN: frozenset(),
-    RoleName.TECHNICIAN: frozenset(),
+    RoleName.SENIOR_TECHNICIAN: frozenset(
+        {
+            VehiclePermissionName.VIEW_VEHICLE.value,
+        }
+    ),
+    RoleName.TECHNICIAN: frozenset(
+        {
+            VehiclePermissionName.VIEW_VEHICLE.value,
+        }
+    ),
     RoleName.CASHIER: frozenset(
         {
             CustomerPermissionName.VIEW_CUSTOMER.value,
             CustomerPermissionName.ADD_CUSTOMER.value,
             CustomerPermissionName.CHANGE_CUSTOMER.value,
+            VehiclePermissionName.VIEW_VEHICLE.value,
         }
     ),
     RoleName.MANAGER: frozenset(
         {
             CustomerPermissionName.VIEW_CUSTOMER.value,
+            VehiclePermissionName.VIEW_VEHICLE.value,
         }
     ),
 }
