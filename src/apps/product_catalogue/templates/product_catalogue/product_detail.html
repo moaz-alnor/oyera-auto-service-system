@@ -1,0 +1,169 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ product.sku }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ product.sku }}
+            </p>
+
+            <h1>{{ product.name }}</h1>
+
+            <p class="page-header__description">
+                Product definition and historical selling prices.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'product_catalogue:list' %}"
+            >
+                Back to products
+            </a>
+
+            {% if perms.product_catalogue.change_product_price and product.is_active %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'product_catalogue:change_price' product.pk %}"
+                >
+                    Change price
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+
+                <dd>
+                    {% if product.is_active %}
+                        <span class="status-badge status-badge--active">
+                            Active
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-badge--inactive">
+                            Inactive
+                        </span>
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Category</dt>
+                <dd>{{ product.category.name }}</dd>
+            </div>
+
+            <div>
+                <dt>Unit of measure</dt>
+                <dd>{{ product.get_unit_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Current selling price</dt>
+
+                <dd>
+                    {% if current_price %}
+                        {{ current_price.currency }}
+                        {{ current_price.amount|floatformat:2 }}
+                    {% else %}
+                        No current price
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Manufacturer</dt>
+
+                <dd>
+                    {{ product.manufacturer|default:"Not specified" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Manufacturer part number</dt>
+
+                <dd>
+                    {{ product.manufacturer_part_number|default:"Not specified" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Created by</dt>
+                <dd>{{ product.created_by }}</dd>
+            </div>
+
+            <div>
+                <dt>Last updated</dt>
+                <dd>{{ product.updated_at|date:"d M Y, H:i" }}</dd>
+            </div>
+        </dl>
+
+        {% if product.description %}
+            <div class="details-section">
+                <h2>Description</h2>
+
+                <p>
+                    {{ product.description|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card details-section">
+        <h2>Selling-price history</h2>
+
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Amount</th>
+                        <th scope="col">Effective from</th>
+                        <th scope="col">Effective until</th>
+                        <th scope="col">Changed by</th>
+                        <th scope="col">Notes</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for price in price_history %}
+                        <tr>
+                            <td>
+                                {{ price.currency }}
+                                {{ price.amount|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                {{ price.effective_from|date:"d M Y, H:i" }}
+                            </td>
+
+                            <td>
+                                {% if price.effective_until %}
+                                    {{ price.effective_until|date:"d M Y, H:i" }}
+                                {% else %}
+                                    Current
+                                {% endif %}
+                            </td>
+
+                            <td>{{ price.changed_by }}</td>
+
+                            <td>{{ price.notes|default:"—" }}</td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5">
+                                No selling-price history is available.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

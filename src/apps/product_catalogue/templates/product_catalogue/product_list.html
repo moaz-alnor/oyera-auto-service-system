@@ -1,0 +1,205 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Products | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Product catalogue
+            </p>
+
+            <h1>Products</h1>
+
+            <p class="page-header__description">
+                Search parts, materials, fluids, and consumable products.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            {% if perms.product_catalogue.view_productcategory %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'product_catalogue:category_list' %}"
+                >
+                    Categories
+                </a>
+            {% endif %}
+
+            {% if perms.product_catalogue.add_product %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'product_catalogue:create' %}"
+                >
+                    Add product
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="product-search"
+                >
+                    Search products
+                </label>
+
+                <input
+                    id="product-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="SKU, name, manufacturer, or part number"
+                >
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="category-filter"
+                >
+                    Category
+                </label>
+
+                <select
+                    id="category-filter"
+                    class="form-control"
+                    name="category"
+                >
+                    <option value="">All categories</option>
+
+                    {% for category in categories %}
+                        <option
+                            value="{{ category.pk }}"
+                            {% if selected_category == category.pk|stringformat:"s" %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ category.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <label class="checkbox-field">
+                <input
+                    type="checkbox"
+                    name="include_inactive"
+                    value="1"
+                    {% if include_inactive %}checked{% endif %}
+                >
+
+                Include inactive
+            </label>
+
+            <button
+                class="button button--secondary"
+                type="submit"
+            >
+                Search
+            </button>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">SKU</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Category</th>
+                            <th scope="col">Manufacturer</th>
+                            <th scope="col">Unit</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for product in page.object_list %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'product_catalogue:detail' product.pk %}"
+                                    >
+                                        {{ product.sku }}
+                                    </a>
+                                </td>
+
+                                <td>{{ product.name }}</td>
+
+                                <td>{{ product.category.name }}</td>
+
+                                <td>
+                                    {{ product.manufacturer|default:"—" }}
+                                </td>
+
+                                <td>{{ product.get_unit_display }}</td>
+
+                                <td>
+                                    {% if product.is_active %}
+                                        <span class="status-badge status-badge--active">
+                                            Active
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Inactive
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.has_other_pages %}
+                <nav
+                    class="pagination"
+                    aria-label="Product pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&category={{ selected_category|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }} of
+                        {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&category={{ selected_category|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No products found</h2>
+
+                <p>
+                    Adjust the filters or add the first catalogue product.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

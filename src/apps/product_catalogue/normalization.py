@@ -142,3 +142,30 @@ def normalize_part_number_key(value: str) -> str:
         "",
         value.upper(),
     )
+
+
+def normalize_category_code_search(value: str) -> str:
+    """Return a canonical partial category-code search value."""
+
+    return _NON_ALPHANUMERIC_PATTERN.sub(
+        "",
+        value.upper(),
+    )
+
+
+def normalize_product_sku_search(value: str) -> str:
+    """Return a canonical partial SKU search value."""
+
+    return _NON_ALPHANUMERIC_PATTERN.sub(
+        "",
+        value.upper(),
+    )
+
+
+def normalize_part_number_search(value: str) -> str:
+    """Return a canonical partial manufacturer-part search value."""
+
+    return _NON_ALPHANUMERIC_PATTERN.sub(
+        "",
+        value.upper(),
+    )

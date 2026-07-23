@@ -56,6 +56,19 @@
             </a>
         {% endif %}
 
+        {% if perms.product_catalogue.view_product %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'product_catalogue' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'product_catalogue:list' %}"
+            >
+                Products
+            </a>
+        {% endif %}
+
         {% if request.user.is_staff %}
             <p class="sidebar-nav__label">
                 Administration
