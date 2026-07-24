@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "apps.product_catalogue.apps.ProductCatalogueConfig",
     "apps.jobs.apps.JobsConfig",
     "apps.quotations.apps.QuotationsConfig",
+    "apps.workshop.apps.WorkshopConfig",
 ]
 
 # Use the project-specific employee account model.

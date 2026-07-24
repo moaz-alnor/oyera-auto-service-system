@@ -1,0 +1,402 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ work_order.work_order_number }} | Workshop
+{% endblock %}
+
+{% block app_content %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Workshop work order</p>
+            <h1>{{ work_order.work_order_number }}</h1>
+            <p>
+                Job {{ work_order.job_card.job_number }}
+                ·
+                {{ work_order.job_card.vehicle_registration_snapshot }}
+            </p>
+        </div>
+
+        <div class="button-group">
+            <a
+                class="button button--secondary"
+                href="{% url 'workshop:list' %}"
+            >
+                Back to workshop
+            </a>
+
+            {% if work_order.status == "READY" %}
+                {% if perms.workshop.start_work_order %}
+                    <form
+                        method="post"
+                        action="{% url 'workshop:start' work_order.pk %}"
+                    >
+                        {% csrf_token %}
+                        <button
+                            class="button button--primary"
+                            type="submit"
+                        >
+                            Start work order
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
+
+            {% if work_order.status == "IN_PROGRESS" %}
+                {% if perms.workshop.hold_work_order %}
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'workshop:hold' work_order.pk %}"
+                    >
+                        Place on hold
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if work_order.status == "ON_HOLD" %}
+                {% if perms.workshop.resume_work_order %}
+                    <form
+                        method="post"
+                        action="{% url 'workshop:resume' work_order.pk %}"
+                    >
+                        {% csrf_token %}
+                        <button
+                            class="button button--primary"
+                            type="submit"
+                        >
+                            Resume work order
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
+
+            {% if work_order.status == "AWAITING_REVIEW" %}
+                {% if perms.workshop.complete_work_order %}
+                    <form
+                        method="post"
+                        action="{% url 'workshop:complete' work_order.pk %}"
+                    >
+                        {% csrf_token %}
+                        <button
+                            class="button button--primary"
+                            type="submit"
+                        >
+                            Complete work order
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
+        </div>
+    </section>
+
+    {% if work_order.status == "ON_HOLD" and work_order.hold_reason %}
+        <section class="alert alert--warning">
+            <strong>Work order on hold:</strong>
+            {{ work_order.hold_reason }}
+        </section>
+    {% endif %}
+
+    <section class="detail-grid">
+        <article class="card">
+            <h2>Work-order information</h2>
+
+            <dl class="detail-list">
+                <div>
+                    <dt>Status</dt>
+                    <dd>{{ work_order.get_status_display }}</dd>
+                </div>
+
+                <div>
+                    <dt>Job card</dt>
+                    <dd>
+                        <a href="{% url 'jobs:detail' work_order.job_card.pk %}">
+                            {{ work_order.job_card.job_number }}
+                        </a>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Approved quotation</dt>
+                    <dd>
+                        <a href="{% url 'quotations:detail' work_order.approved_quotation.pk %}">
+                            {{ work_order.approved_quotation.quotation_number }}
+                        </a>
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Customer</dt>
+                    <dd>
+                        {{ work_order.job_card.customer_name_snapshot }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Vehicle</dt>
+                    <dd>
+                        {{ work_order.job_card.vehicle_registration_snapshot }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Started</dt>
+                    <dd>
+                        {{ work_order.started_at|date:"d M Y H:i"|default:"Not started" }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Completed</dt>
+                    <dd>
+                        {{ work_order.completed_at|date:"d M Y H:i"|default:"Not completed" }}
+                    </dd>
+                </div>
+            </dl>
+        </article>
+    </section>
+
+    <section class="card">
+        <div class="section-heading">
+            <div>
+                <h2>Service tasks</h2>
+                <p>
+                    Technician assignments and technical execution
+                    for approved service work.
+                </p>
+            </div>
+        </div>
+
+        {% for row in task_rows %}
+            {% with task=row.task %}
+                <article class="list-item">
+                    <div>
+                        <h3>
+                            {{ task.position }}.
+                            {{ task.service_name_snapshot }}
+                        </h3>
+
+                        <p>
+                            {{ task.service_code_snapshot }}
+                            ·
+                            {{ task.get_status_display }}
+                            ·
+                            Quantity {{ task.approved_quantity }}
+                        </p>
+
+                        {% if task.description_snapshot %}
+                            <p>{{ task.description_snapshot }}</p>
+                        {% endif %}
+
+                        {% if task.blocked_reason %}
+                            <div class="alert alert--warning">
+                                <strong>Blocked:</strong>
+                                {{ task.blocked_reason }}
+                            </div>
+                        {% endif %}
+
+                        {% if task.completion_notes %}
+                            <div class="alert alert--info">
+                                <strong>Completion evidence:</strong>
+                                {{ task.completion_notes|linebreaksbr }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div>
+                        <strong>
+                            {{ work_order.approved_quotation.currency }}
+                            {{ task.approved_unit_price }}
+                        </strong>
+                    </div>
+                </article>
+
+                <div class="button-group">
+                    {% if perms.workshop.assign_technician %}
+                        {% if work_order.status == "PLANNED" or work_order.status == "READY" %}
+                            <a
+                                class="button button--secondary"
+                                href="{% url 'workshop:assign_technician' task.pk %}"
+                            >
+                                Assign technician
+                            </a>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if row.can_operate %}
+                        {% if perms.workshop.start_work_task %}
+                            {% if work_order.status == "IN_PROGRESS" %}
+                                {% if task.status == "ASSIGNED" or task.status == "BLOCKED" %}
+                                    <form
+                                        method="post"
+                                        action="{% url 'workshop:start_task' task.pk %}"
+                                    >
+                                        {% csrf_token %}
+                                        <button
+                                            class="button button--primary"
+                                            type="submit"
+                                        >
+                                            {% if task.status == "BLOCKED" %}
+                                                Resume task
+                                            {% else %}
+                                                Start task
+                                            {% endif %}
+                                        </button>
+                                    </form>
+                                {% endif %}
+                            {% endif %}
+                        {% endif %}
+
+                        {% if perms.workshop.block_work_task %}
+                            {% if work_order.status == "IN_PROGRESS" and task.status == "IN_PROGRESS" %}
+                                <a
+                                    class="button button--secondary"
+                                    href="{% url 'workshop:block_task' task.pk %}"
+                                >
+                                    Block task
+                                </a>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if perms.workshop.complete_work_task %}
+                            {% if work_order.status == "IN_PROGRESS" and task.status == "IN_PROGRESS" %}
+                                <a
+                                    class="button button--primary"
+                                    href="{% url 'workshop:submit_task_review' task.pk %}"
+                                >
+                                    Submit for review
+                                </a>
+                            {% endif %}
+                        {% endif %}
+
+                        {% if perms.workshop.add_worktasknote %}
+                            <a
+                                class="button button--secondary"
+                                href="{% url 'workshop:add_task_note' task.pk %}"
+                            >
+                                Add note
+                            </a>
+                        {% endif %}
+                    {% endif %}
+
+                    {% if is_coordinator %}
+                        {% if task.status == "AWAITING_REVIEW" %}
+                            {% if perms.workshop.complete_work_task %}
+                                <form
+                                    method="post"
+                                    action="{% url 'workshop:approve_task' task.pk %}"
+                                >
+                                    {% csrf_token %}
+                                    <button
+                                        class="button button--primary"
+                                        type="submit"
+                                    >
+                                        Approve task
+                                    </button>
+                                </form>
+                            {% endif %}
+                        {% endif %}
+                    {% endif %}
+                </div>
+
+                <section class="nested-card">
+                    <div class="section-heading">
+                        <h3>Technician assignments</h3>
+                    </div>
+
+                    {% for assignment in task.assignments.all %}
+                        <article class="list-item">
+                            <div>
+                                <strong>
+                                    {{ assignment.technician }}
+                                </strong>
+
+                                <p>
+                                    {{ assignment.get_status_display }}
+                                    ·
+                                    Assigned
+                                    {{ assignment.assigned_at|date:"d M Y H:i" }}
+                                </p>
+
+                                {% if assignment.removal_reason %}
+                                    <p>
+                                        Removal reason:
+                                        {{ assignment.removal_reason }}
+                                    </p>
+                                {% endif %}
+                            </div>
+
+                            {% if assignment.is_active %}
+                                {% if perms.workshop.assign_technician %}
+                                    {% if work_order.status == "PLANNED" or work_order.status == "READY" %}
+                                        <a
+                                            class="button button--danger"
+                                            href="{% url 'workshop:remove_technician' assignment.pk %}"
+                                        >
+                                            Remove
+                                        </a>
+                                    {% endif %}
+                                {% endif %}
+                            {% endif %}
+                        </article>
+                    {% empty %}
+                        <p>No technicians have been assigned.</p>
+                    {% endfor %}
+                </section>
+
+                <section class="nested-card">
+                    <div class="section-heading">
+                        <h3>Task notes</h3>
+                    </div>
+
+                    {% for note in task.notes.all %}
+                        <article class="list-item">
+                            <div>
+                                <strong>
+                                    {{ note.get_note_type_display }}
+                                </strong>
+
+                                <p>{{ note.content|linebreaksbr }}</p>
+
+                                <small>
+                                    {{ note.created_by }}
+                                    ·
+                                    {{ note.created_at|date:"d M Y H:i" }}
+                                </small>
+                            </div>
+                        </article>
+                    {% empty %}
+                        <p>No workshop notes have been recorded.</p>
+                    {% endfor %}
+                </section>
+            {% endwith %}
+        {% empty %}
+            <p>No workshop tasks were found.</p>
+        {% endfor %}
+    </section>
+
+    <section class="card">
+        <h2>Approved product requirements</h2>
+
+        {% for requirement in work_order.product_requirements.all %}
+            <article class="list-item">
+                <div>
+                    <h3>
+                        {{ requirement.product_name_snapshot }}
+                    </h3>
+
+                    <p>
+                        {{ requirement.product_sku_snapshot }}
+                        ·
+                        {{ requirement.approved_quantity }}
+                        {{ requirement.unit_snapshot }}
+                    </p>
+                </div>
+
+                <span>
+                    {{ requirement.get_inventory_status_display }}
+                </span>
+            </article>
+        {% empty %}
+            <p>No products were approved for this work order.</p>
+        {% endfor %}
+    </section>
+{% endblock %}

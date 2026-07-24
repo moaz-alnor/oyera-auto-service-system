@@ -67,6 +67,14 @@
                 Quotations
             </a>
         {% endif %}
+        {% if perms.workshop.view_workorder %}
+            <a
+                class="sidebar-nav__link"
+                href="{% url 'workshop:list' %}"
+            >
+                Workshop
+            </a>
+        {% endif %}
         {% if perms.service_catalogue.view_service %}
             <a
                 class="sidebar-nav__link

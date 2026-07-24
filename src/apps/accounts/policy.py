@@ -13,6 +13,7 @@ from apps.service_catalogue.constants import (
     ServicePermissionName,
 )
 from apps.vehicles.constants import VehiclePermissionName
+from apps.workshop.constants import WorkshopPermissionName
 
 ROLE_PERMISSION_POLICY: dict[
     RoleName,
@@ -64,6 +65,25 @@ ROLE_PERMISSION_POLICY: dict[
             QuotationPermissionName.APPROVE_QUOTATION.value,
             QuotationPermissionName.REJECT_QUOTATION.value,
             QuotationPermissionName.REVISE_QUOTATION.value,
+            WorkshopPermissionName.VIEW_WORK_ORDER.value,
+            WorkshopPermissionName.ADD_WORK_ORDER.value,
+            WorkshopPermissionName.CHANGE_WORK_ORDER.value,
+            WorkshopPermissionName.VIEW_WORK_TASK.value,
+            WorkshopPermissionName.CHANGE_WORK_TASK.value,
+            WorkshopPermissionName.VIEW_ASSIGNMENT.value,
+            WorkshopPermissionName.ADD_ASSIGNMENT.value,
+            WorkshopPermissionName.CHANGE_ASSIGNMENT.value,
+            WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
+            WorkshopPermissionName.VIEW_TASK_NOTE.value,
+            WorkshopPermissionName.ADD_TASK_NOTE.value,
+            WorkshopPermissionName.ASSIGN_TECHNICIAN.value,
+            WorkshopPermissionName.START_WORK_ORDER.value,
+            WorkshopPermissionName.HOLD_WORK_ORDER.value,
+            WorkshopPermissionName.RESUME_WORK_ORDER.value,
+            WorkshopPermissionName.COMPLETE_WORK_ORDER.value,
+            WorkshopPermissionName.START_WORK_TASK.value,
+            WorkshopPermissionName.BLOCK_WORK_TASK.value,
+            WorkshopPermissionName.COMPLETE_WORK_TASK.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -92,6 +112,11 @@ ROLE_PERMISSION_POLICY: dict[
             QuotationPermissionName.APPROVE_QUOTATION.value,
             QuotationPermissionName.REJECT_QUOTATION.value,
             QuotationPermissionName.REVISE_QUOTATION.value,
+            WorkshopPermissionName.VIEW_WORK_ORDER.value,
+            WorkshopPermissionName.VIEW_WORK_TASK.value,
+            WorkshopPermissionName.VIEW_ASSIGNMENT.value,
+            WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
+            WorkshopPermissionName.VIEW_TASK_NOTE.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
@@ -106,6 +131,23 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.VIEW_JOB_NOTE.value,
             JobPermissionName.ADD_JOB_NOTE.value,
             QuotationPermissionName.VIEW_QUOTATION.value,
+            WorkshopPermissionName.VIEW_WORK_ORDER.value,
+            WorkshopPermissionName.CHANGE_WORK_ORDER.value,
+            WorkshopPermissionName.VIEW_WORK_TASK.value,
+            WorkshopPermissionName.CHANGE_WORK_TASK.value,
+            WorkshopPermissionName.VIEW_ASSIGNMENT.value,
+            WorkshopPermissionName.ADD_ASSIGNMENT.value,
+            WorkshopPermissionName.CHANGE_ASSIGNMENT.value,
+            WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
+            WorkshopPermissionName.VIEW_TASK_NOTE.value,
+            WorkshopPermissionName.ADD_TASK_NOTE.value,
+            WorkshopPermissionName.ASSIGN_TECHNICIAN.value,
+            WorkshopPermissionName.START_WORK_ORDER.value,
+            WorkshopPermissionName.HOLD_WORK_ORDER.value,
+            WorkshopPermissionName.RESUME_WORK_ORDER.value,
+            WorkshopPermissionName.START_WORK_TASK.value,
+            WorkshopPermissionName.BLOCK_WORK_TASK.value,
+            WorkshopPermissionName.COMPLETE_WORK_TASK.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
@@ -120,6 +162,16 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.VIEW_JOB_NOTE.value,
             JobPermissionName.ADD_JOB_NOTE.value,
             QuotationPermissionName.VIEW_QUOTATION.value,
+            WorkshopPermissionName.VIEW_WORK_ORDER.value,
+            WorkshopPermissionName.VIEW_WORK_TASK.value,
+            WorkshopPermissionName.CHANGE_WORK_TASK.value,
+            WorkshopPermissionName.VIEW_ASSIGNMENT.value,
+            WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
+            WorkshopPermissionName.VIEW_TASK_NOTE.value,
+            WorkshopPermissionName.ADD_TASK_NOTE.value,
+            WorkshopPermissionName.START_WORK_TASK.value,
+            WorkshopPermissionName.BLOCK_WORK_TASK.value,
+            WorkshopPermissionName.COMPLETE_WORK_TASK.value,
         }
     ),
     RoleName.CASHIER: frozenset(
@@ -135,6 +187,8 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.VIEW_INSPECTION.value,
             JobPermissionName.VIEW_JOB_NOTE.value,
             QuotationPermissionName.VIEW_QUOTATION.value,
+            WorkshopPermissionName.VIEW_WORK_ORDER.value,
+            WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -171,6 +225,25 @@ ROLE_PERMISSION_POLICY: dict[
             QuotationPermissionName.APPROVE_QUOTATION.value,
             QuotationPermissionName.REJECT_QUOTATION.value,
             QuotationPermissionName.REVISE_QUOTATION.value,
+            WorkshopPermissionName.VIEW_WORK_ORDER.value,
+            WorkshopPermissionName.ADD_WORK_ORDER.value,
+            WorkshopPermissionName.CHANGE_WORK_ORDER.value,
+            WorkshopPermissionName.VIEW_WORK_TASK.value,
+            WorkshopPermissionName.CHANGE_WORK_TASK.value,
+            WorkshopPermissionName.VIEW_ASSIGNMENT.value,
+            WorkshopPermissionName.ADD_ASSIGNMENT.value,
+            WorkshopPermissionName.CHANGE_ASSIGNMENT.value,
+            WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
+            WorkshopPermissionName.VIEW_TASK_NOTE.value,
+            WorkshopPermissionName.ADD_TASK_NOTE.value,
+            WorkshopPermissionName.ASSIGN_TECHNICIAN.value,
+            WorkshopPermissionName.START_WORK_ORDER.value,
+            WorkshopPermissionName.HOLD_WORK_ORDER.value,
+            WorkshopPermissionName.RESUME_WORK_ORDER.value,
+            WorkshopPermissionName.COMPLETE_WORK_ORDER.value,
+            WorkshopPermissionName.START_WORK_TASK.value,
+            WorkshopPermissionName.BLOCK_WORK_TASK.value,
+            WorkshopPermissionName.COMPLETE_WORK_TASK.value,
         }
     ),
 }

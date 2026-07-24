@@ -1,0 +1,45 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Assign technician | Workshop
+{% endblock %}
+
+{% block app_content %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Technician assignment</p>
+            <h1>Assign technician</h1>
+            <p>{{ work_task.service_name_snapshot }}</p>
+        </div>
+    </section>
+
+    <section class="card form-card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {{ form.non_field_errors }}
+
+            <div class="form-group">
+                {{ form.technician.label_tag }}
+                {{ form.technician }}
+                {{ form.technician.errors }}
+            </div>
+
+            <div class="button-group">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Assign technician
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'workshop:detail' work_order.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

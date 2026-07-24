@@ -1,0 +1,63 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Create work order | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Workshop planning</p>
+            <h1>Create work order</h1>
+            <p>
+                Select a current approved quotation. Approved
+                services and products will be copied as execution
+                snapshots.
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'workshop:list' %}"
+        >
+            Back to workshop
+        </a>
+    </section>
+
+    <section class="card form-card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert--error">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                {{ form.approved_quotation.label_tag }}
+                {{ form.approved_quotation }}
+
+                {% for error in form.approved_quotation.errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+
+            <div class="button-group">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Create work order
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'workshop:list' %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

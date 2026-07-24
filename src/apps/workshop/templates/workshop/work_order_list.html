@@ -1,0 +1,137 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Workshop | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Workshop execution</p>
+            <h1>Work orders</h1>
+            <p>
+                Track approved repair work, technician
+                assignments, and workshop progress.
+            </p>
+        </div>
+
+        {% if perms.workshop.add_workorder %}
+            <a
+                class="button button--primary"
+                href="{% url 'workshop:create' %}"
+            >
+                Create work order
+            </a>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <form method="get" class="filter-form">
+            <div class="form-group">
+                <label for="work-order-search">Search</label>
+                <input
+                    id="work-order-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Order, job, customer, or vehicle"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="work-order-status">Status</label>
+                <select
+                    id="work-order-status"
+                    class="form-control"
+                    name="status"
+                >
+                    <option value="">All statuses</option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_status == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="button-group">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply filters
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'workshop:list' %}"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if work_orders %}
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Work order</th>
+                            <th>Job card</th>
+                            <th>Customer</th>
+                            <th>Vehicle</th>
+                            <th>Status</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for work_order in work_orders %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'workshop:detail' work_order.pk %}"
+                                    >
+                                        {{ work_order.work_order_number }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {{ work_order.job_card.job_number }}
+                                </td>
+                                <td>
+                                    {{ work_order.job_card.customer_name_snapshot }}
+                                </td>
+                                <td>
+                                    {{ work_order.job_card.vehicle_registration_snapshot }}
+                                </td>
+                                <td>
+                                    {{ work_order.get_status_display }}
+                                </td>
+                                <td>
+                                    {{ work_order.created_at|date:"d M Y H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h2>No work orders found</h2>
+                <p>
+                    Change the filters or create workshop
+                    execution from an approved quotation.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
