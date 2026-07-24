@@ -1,0 +1,238 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Quotations | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Customer estimates
+            </p>
+
+            <h1>Quotations</h1>
+
+            <p class="page-header__description">
+                Review quotation revisions, customer decisions,
+                and workshop estimates.
+            </p>
+        </div>
+
+        {% if perms.quotations.add_quotation %}
+            <a
+                class="button button--primary"
+                href="{% url 'quotations:create' %}"
+            >
+                Create quotation
+            </a>
+        {% endif %}
+    </header>
+
+    <section class="card">
+        <form
+            method="get"
+            class="filter-form"
+        >
+            <div class="form-group">
+                <label for="quotation-search">
+                    Search
+                </label>
+
+                <input
+                    id="quotation-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Quotation, job, customer, phone, or vehicle"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="quotation-status">
+                    Status
+                </label>
+
+                <select
+                    id="quotation-status"
+                    class="form-control"
+                    name="status"
+                >
+                    <option value="">
+                        All statuses
+                    </option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_status == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group form-group--checkbox">
+                <label>
+                    <input
+                        type="checkbox"
+                        name="current_only"
+                        value="1"
+                        {% if current_only %}
+                            checked
+                        {% endif %}
+                    >
+
+                    Current revisions only
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply filters
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'quotations:list' %}"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                Quotation
+                            </th>
+
+                            <th scope="col">
+                                Job
+                            </th>
+
+                            <th scope="col">
+                                Customer
+                            </th>
+
+                            <th scope="col">
+                                Vehicle
+                            </th>
+
+                            <th scope="col">
+                                Revision
+                            </th>
+
+                            <th scope="col">
+                                Status
+                            </th>
+
+                            <th scope="col">
+                                Created
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for quotation in page %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'quotations:detail' quotation.pk %}"
+                                    >
+                                        {{ quotation.quotation_number }}
+                                    </a>
+
+                                    {% if quotation.is_current %}
+                                        <span class="badge">
+                                            Current
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <a
+                                        href="{% url 'jobs:detail' quotation.job_card.pk %}"
+                                    >
+                                        {{ quotation.job_card.job_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ quotation.job_card.customer_name_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ quotation.job_card.vehicle_registration_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ quotation.revision_number }}
+                                </td>
+
+                                <td>
+                                    {{ quotation.get_status_display }}
+                                </td>
+
+                                <td>
+                                    {{ quotation.created_at|date:"d M Y, H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.paginator.num_pages > 1 %}
+                <nav
+                    class="pagination"
+                    aria-label="Quotation pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&current_only={% if current_only %}1{% endif %}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }}
+                        of {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&current_only={% if current_only %}1{% endif %}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No quotations found</h2>
+
+                <p>
+                    No quotation records match the selected
+                    search and filters.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

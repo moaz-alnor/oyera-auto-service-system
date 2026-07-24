@@ -23,6 +23,10 @@ urlpatterns = [
         include("apps.product_catalogue.urls"),
     ),
     path(
+        "quotations/",
+        include("apps.quotations.urls"),
+    ),
+    path(
         "jobs/",
         include("apps.jobs.urls"),
     ),

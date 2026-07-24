@@ -45,6 +45,10 @@ from apps.jobs.services.intake import (
     cancel_job_card,
     open_job_card,
 )
+from apps.quotations.selectors import (
+    get_current_quotation_for_job,
+    get_quotation_history_for_job,
+)
 from apps.vehicles.models import Vehicle
 
 
@@ -213,6 +217,12 @@ def job_detail(
             "job_card": job_card,
             "inspections": get_job_inspections(job_card_id=job_card_id),
             "notes": get_job_notes(job_card_id=job_card_id),
+            "current_quotation": (
+                get_current_quotation_for_job(job_card_id=job_card_id)
+            ),
+            "quotation_history": (
+                get_quotation_history_for_job(job_card_id=job_card_id)
+            ),
         },
     )
 

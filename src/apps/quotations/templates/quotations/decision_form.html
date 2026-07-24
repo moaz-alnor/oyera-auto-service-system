@@ -1,0 +1,126 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {% if decision_action == "approve" %}
+        Approve
+    {% else %}
+        Reject
+    {% endif %}
+    {{ quotation.quotation_number }}
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Customer decision
+        </p>
+
+        <h1>
+            {% if decision_action == "approve" %}
+                Approve quotation
+            {% else %}
+                Reject quotation
+            {% endif %}
+        </h1>
+
+        <p class="page-header__description">
+            Record who communicated the decision, how it was
+            communicated, and any supporting notes.
+        </p>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Quotation</dt>
+                <dd>{{ quotation.quotation_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Job card</dt>
+                <dd>{{ quotation.job_card.job_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Customer</dt>
+                <dd>
+                    {{ quotation.job_card.customer_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Current status</dt>
+                <dd>{{ quotation.get_status_display }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        {% if decision_action == "reject" %}
+            <div class="message message--warning">
+                <p>
+                    A clear rejection reason is required before
+                    the decision can be recorded.
+                </p>
+            </div>
+        {% endif %}
+
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button
+                    class="button
+                        {% if decision_action == 'approve' %}
+                            button--primary
+                        {% else %}
+                            button--danger
+                        {% endif %}
+                    "
+                    type="submit"
+                >
+                    {% if decision_action == "approve" %}
+                        Record approval
+                    {% else %}
+                        Record rejection
+                    {% endif %}
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'quotations:detail' quotation.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

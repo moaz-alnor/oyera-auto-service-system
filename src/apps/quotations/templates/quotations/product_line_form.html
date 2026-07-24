@@ -1,0 +1,91 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Add Product | {{ quotation.quotation_number }}
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            {{ quotation.quotation_number }}
+        </p>
+
+        <h1>Add product</h1>
+
+        <p class="page-header__description">
+            Add a product using its current catalogue price,
+            name, SKU, and unit as permanent snapshots.
+        </p>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Job card</dt>
+                <dd>{{ quotation.job_card.job_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Vehicle</dt>
+                <dd>
+                    {{ quotation.job_card.vehicle_registration_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Currency</dt>
+                <dd>{{ quotation.currency }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Add product
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'quotations:detail' quotation.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

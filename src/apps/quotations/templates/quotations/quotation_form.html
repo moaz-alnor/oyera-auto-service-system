@@ -1,0 +1,76 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Create Quotation | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Customer estimate
+        </p>
+
+        <h1>Create quotation</h1>
+
+        <p class="page-header__description">
+            Start the first quotation revision for an active
+            workshop job.
+        </p>
+    </header>
+
+    <section class="card">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Create quotation
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'quotations:list' %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

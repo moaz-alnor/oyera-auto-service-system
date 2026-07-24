@@ -55,6 +55,18 @@
                 Job cards
             </a>
         {% endif %}
+        {% if perms.quotations.view_quotation %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'quotations' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'quotations:list' %}"
+            >
+                Quotations
+            </a>
+        {% endif %}
         {% if perms.service_catalogue.view_service %}
             <a
                 class="sidebar-nav__link
