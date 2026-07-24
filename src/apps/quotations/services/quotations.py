@@ -18,6 +18,9 @@ from apps.product_catalogue.models import (
     Product,
     ProductPrice,
 )
+from apps.quotations.calculations import (
+    calculate_quotation_totals,
+)
 from apps.quotations.constants import (
     CustomerDecisionMethod,
     QuotationPermissionName,
@@ -353,10 +356,12 @@ def submit_quotation(
             {"quotation": ("Add at least one line before submitting.")}
         )
 
-    if quotation.total <= Decimal("0"):
-        raise ValidationError(
-            {"quotation": ("Quotation total must be greater than zero.")}
-        )
+        totals = calculate_quotation_totals(quotation)
+
+        if totals.total <= Decimal("0"):
+            raise ValidationError(
+                {"quotation": ("Quotation total must be greater than zero.")}
+            )
 
     quotation.status = QuotationStatus.SENT
     quotation.submitted_at = timezone.now()

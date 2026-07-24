@@ -26,6 +26,9 @@ from apps.product_catalogue.services.catalogue import (
     create_product,
     create_product_category,
 )
+from apps.quotations.calculations import (
+    calculate_quotation_totals,
+)
 from apps.quotations.constants import (
     CustomerDecisionMethod,
     QuotationStatus,
@@ -180,13 +183,15 @@ def test_quotation_calculates_snapshot_totals() -> None:
         ),
     )
 
-    assert quotation.service_subtotal == Decimal("100000.00")
-    assert quotation.product_subtotal == Decimal("100000.00")
-    assert quotation.subtotal == Decimal("200000.00")
-    assert quotation.discount_amount == Decimal("20000.00")
-    assert quotation.taxable_amount == Decimal("180000.00")
-    assert quotation.tax_amount == Decimal("32400.00")
-    assert quotation.total == Decimal("212400.00")
+    totals = calculate_quotation_totals(quotation)
+
+    assert totals.service_subtotal == Decimal("100000.00")
+    assert totals.product_subtotal == Decimal("100000.00")
+    assert totals.subtotal == Decimal("200000.00")
+    assert totals.discount_amount == Decimal("20000.00")
+    assert totals.taxable_amount == Decimal("180000.00")
+    assert totals.tax_amount == Decimal("32400.00")
+    assert totals.total == Decimal("212400.00")
 
 
 @pytest.mark.django_db

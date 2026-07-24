@@ -1,6 +1,7 @@
 """Database models for quotation and approval workflows."""
 
-from decimal import ROUND_HALF_UP, Decimal
+from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.core.exceptions import (
@@ -13,27 +14,23 @@ from django.db.models import Q
 from apps.core.models import TimeStampedModel
 from apps.jobs.models import JobCard
 from apps.product_catalogue.models import Product
+from apps.quotations.calculations import (
+    calculate_line_total,
+)
 from apps.quotations.constants import (
     CustomerDecisionMethod,
     QuotationStatus,
 )
 from apps.service_catalogue.models import Service
 
-_MONEY_INCREMENT = Decimal("0.01")
-_PERCENT_DIVISOR = Decimal("100")
-
-
-def _money(value: Decimal) -> Decimal:
-    """Round a monetary value to two decimal places."""
-
-    return value.quantize(
-        _MONEY_INCREMENT,
-        rounding=ROUND_HALF_UP,
-    )
-
 
 class Quotation(TimeStampedModel):
     """Represent one version of a quotation for a job card."""
+
+    if TYPE_CHECKING:
+        job_card_id: int
+        service_lines: models.Manager["QuotationServiceLine"]
+        product_lines: models.Manager["QuotationProductLine"]
 
     quotation_number = models.CharField(
         max_length=40,
@@ -183,64 +180,6 @@ class Quotation(TimeStampedModel):
                 name="quote_tax_range",
             ),
         )
-
-    @property
-    def service_subtotal(self) -> Decimal:
-        """Return the total value of all service lines."""
-
-        total = sum(
-            (
-                line.line_total
-                for line in QuotationServiceLine.objects.filter(quotation=self)
-            ),
-            Decimal("0"),
-        )
-
-        return _money(total)
-
-    @property
-    def product_subtotal(self) -> Decimal:
-        """Return the total value of all product lines."""
-
-        total = sum(
-            (
-                line.line_total
-                for line in QuotationProductLine.objects.filter(quotation=self)
-            ),
-            Decimal("0"),
-        )
-
-        return _money(total)
-
-    @property
-    def subtotal(self) -> Decimal:
-        """Return the combined pre-discount subtotal."""
-
-        return _money(self.service_subtotal + self.product_subtotal)
-
-    @property
-    def discount_amount(self) -> Decimal:
-        """Return the quotation-level discount amount."""
-
-        return _money(self.subtotal * self.discount_percentage / _PERCENT_DIVISOR)
-
-    @property
-    def taxable_amount(self) -> Decimal:
-        """Return the amount remaining after discount."""
-
-        return _money(self.subtotal - self.discount_amount)
-
-    @property
-    def tax_amount(self) -> Decimal:
-        """Return tax calculated after applying the discount."""
-
-        return _money(self.taxable_amount * self.tax_percentage / _PERCENT_DIVISOR)
-
-    @property
-    def total(self) -> Decimal:
-        """Return the final quotation amount."""
-
-        return _money(self.taxable_amount + self.tax_amount)
 
     def clean(self) -> None:
         """Validate currency, status, and decision consistency."""
@@ -418,7 +357,10 @@ class QuotationServiceLine(TimeStampedModel):
     def line_total(self) -> Decimal:
         """Return quantity multiplied by the price snapshot."""
 
-        return _money(self.quantity * self.unit_price)
+        return calculate_line_total(
+            quantity=self.quantity,
+            unit_price=self.unit_price,
+        )
 
     def clean(self) -> None:
         """Allow changes only on the current draft revision."""
@@ -516,7 +458,10 @@ class QuotationProductLine(TimeStampedModel):
     def line_total(self) -> Decimal:
         """Return quantity multiplied by the price snapshot."""
 
-        return _money(self.quantity * self.unit_price)
+        return calculate_line_total(
+            quantity=self.quantity,
+            unit_price=self.unit_price,
+        )
 
     def clean(self) -> None:
         """Allow changes only on the current draft revision."""
