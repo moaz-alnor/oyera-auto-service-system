@@ -1,0 +1,483 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ quotation.quotation_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Quotation revision {{ quotation.revision_number }}
+            </p>
+
+            <h1>{{ quotation.quotation_number }}</h1>
+
+            <p class="page-header__description">
+                Estimate for job
+                <a href="{% url 'jobs:detail' quotation.job_card.pk %}">
+                    {{ quotation.job_card.job_number }}
+                </a>
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'quotations:list' %}"
+            >
+                Back to quotations
+            </a>
+
+            {% if quotation.status == "DRAFT" and quotation.is_current %}
+                {% if perms.quotations.change_quotation %}
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'quotations:service_line_create' quotation.pk %}"
+                    >
+                        Add service
+                    </a>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'quotations:product_line_create' quotation.pk %}"
+                    >
+                        Add product
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>{{ quotation.get_status_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Current revision</dt>
+                <dd>
+                    {% if quotation.is_current %}
+                        Yes
+                    {% else %}
+                        No
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Customer</dt>
+                <dd>
+                    {{ quotation.job_card.customer_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Customer phone</dt>
+                <dd>
+                    {{ quotation.job_card.customer_phone_snapshot|default:"—" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Vehicle</dt>
+                <dd>
+                    {{ quotation.job_card.vehicle_registration_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Currency</dt>
+                <dd>{{ quotation.currency }}</dd>
+            </div>
+
+            <div>
+                <dt>Valid until</dt>
+                <dd>
+                    {% if quotation.valid_until %}
+                        {{ quotation.valid_until|date:"d M Y" }}
+                    {% else %}
+                        Not specified
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Created by</dt>
+                <dd>{{ quotation.created_by }}</dd>
+            </div>
+        </dl>
+
+        {% if quotation.notes %}
+            <div class="details-section">
+                <h2>Quotation notes</h2>
+
+                <p>{{ quotation.notes|linebreaksbr }}</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header page-header--actions">
+            <div>
+                <h2>Service lines</h2>
+
+                <p class="page-header__description">
+                    Labour and workshop-service price snapshots.
+                </p>
+            </div>
+        </header>
+
+        {% if quotation.service_lines.all %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Position</th>
+                            <th scope="col">Code</th>
+                            <th scope="col">Service</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Unit price</th>
+                            <th scope="col">Line total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in quotation.service_lines.all %}
+                            <tr>
+                                <td>{{ line.position }}</td>
+                                <td>{{ line.service_code_snapshot }}</td>
+                                <td>{{ line.service_name_snapshot }}</td>
+                                <td>
+                                    {{ line.description_snapshot|default:"—"|linebreaksbr }}
+                                </td>
+                                <td>{{ line.quantity|floatformat:2 }}</td>
+                                <td>
+                                    {{ quotation.currency }}
+                                    {{ line.unit_price|floatformat:2 }}
+                                </td>
+                                <td>
+                                    {{ quotation.currency }}
+                                    {{ line.line_total|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No service lines</h3>
+
+                <p>
+                    No workshop services have been added to this
+                    quotation revision.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Product lines</h2>
+
+            <p class="page-header__description">
+                Parts and consumables with preserved price snapshots.
+            </p>
+        </header>
+
+        {% if quotation.product_lines.all %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Position</th>
+                            <th scope="col">SKU</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Unit</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Unit price</th>
+                            <th scope="col">Line total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in quotation.product_lines.all %}
+                            <tr>
+                                <td>{{ line.position }}</td>
+                                <td>{{ line.product_sku_snapshot }}</td>
+                                <td>
+                                    <strong>
+                                        {{ line.product_name_snapshot }}
+                                    </strong>
+
+                                    {% if line.description_snapshot %}
+                                        <br>
+                                        {{ line.description_snapshot|linebreaksbr }}
+                                    {% endif %}
+                                </td>
+                                <td>{{ line.unit_snapshot }}</td>
+                                <td>{{ line.quantity|floatformat:3 }}</td>
+                                <td>
+                                    {{ quotation.currency }}
+                                    {{ line.unit_price|floatformat:2 }}
+                                </td>
+                                <td>
+                                    {{ quotation.currency }}
+                                    {{ line.line_total|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No product lines</h3>
+
+                <p>
+                    No parts or consumables have been added to this
+                    quotation revision.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <h2>Financial summary</h2>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Service subtotal</dt>
+                <dd>
+                    {{ quotation.currency }}
+                    {{ totals.service_subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Product subtotal</dt>
+                <dd>
+                    {{ quotation.currency }}
+                    {{ totals.product_subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Subtotal</dt>
+                <dd>
+                    {{ quotation.currency }}
+                    {{ totals.subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>
+                    Discount
+                    ({{ quotation.discount_percentage|floatformat:2 }}%)
+                </dt>
+                <dd>
+                    {{ quotation.currency }}
+                    {{ totals.discount_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Taxable amount</dt>
+                <dd>
+                    {{ quotation.currency }}
+                    {{ totals.taxable_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>
+                    Tax
+                    ({{ quotation.tax_percentage|floatformat:2 }}%)
+                </dt>
+                <dd>
+                    {{ quotation.currency }}
+                    {{ totals.tax_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Quotation total</dt>
+                <dd>
+                    <strong>
+                        {{ quotation.currency }}
+                        {{ totals.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    {% if quotation.status == "APPROVED" or quotation.status == "REJECTED" %}
+        <section class="card">
+            <h2>Customer decision</h2>
+
+            <dl class="details-grid">
+                <div>
+                    <dt>Decision</dt>
+                    <dd>{{ quotation.get_status_display }}</dd>
+                </div>
+
+                <div>
+                    <dt>Customer representative</dt>
+                    <dd>
+                        {{ quotation.customer_decision_by_name }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Method</dt>
+                    <dd>
+                        {{ quotation.get_decision_method_display }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Recorded at</dt>
+                    <dd>
+                        {{ quotation.decision_at|date:"d M Y, H:i" }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Recorded by</dt>
+                    <dd>
+                        {{ quotation.decision_recorded_by }}
+                    </dd>
+                </div>
+            </dl>
+
+            {% if quotation.decision_notes %}
+                <div class="details-section">
+                    <h3>Decision notes</h3>
+
+                    <p>
+                        {{ quotation.decision_notes|linebreaksbr }}
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    {% if quotation.is_current %}
+        <section class="card">
+            <h2>Actions</h2>
+
+            <div class="form-actions">
+                {% if quotation.status == "DRAFT" %}
+                    {% if perms.quotations.submit_quotation %}
+                        <form
+                            method="post"
+                            action="{% url 'quotations:submit' quotation.pk %}"
+                        >
+                            {% csrf_token %}
+
+                            <button
+                                class="button button--primary"
+                                type="submit"
+                            >
+                                Submit to customer
+                            </button>
+                        </form>
+                    {% endif %}
+                {% endif %}
+
+                {% if quotation.status == "SENT" %}
+                    {% if perms.quotations.approve_quotation %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'quotations:approve' quotation.pk %}"
+                        >
+                            Record approval
+                        </a>
+                    {% endif %}
+
+                    {% if perms.quotations.reject_quotation %}
+                        <a
+                            class="button button--danger"
+                            href="{% url 'quotations:reject' quotation.pk %}"
+                        >
+                            Record rejection
+                        </a>
+                    {% endif %}
+                {% endif %}
+
+                {% if quotation.status == "SENT" or quotation.status == "REJECTED" %}
+                    {% if perms.quotations.revise_quotation %}
+                        <form
+                            method="post"
+                            action="{% url 'quotations:revise' quotation.pk %}"
+                        >
+                            {% csrf_token %}
+
+                            <button
+                                class="button button--secondary"
+                                type="submit"
+                            >
+                                Create revision
+                            </button>
+                        </form>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="card">
+        <h2>Revision history</h2>
+
+        {% if quotation_history %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Quotation</th>
+                            <th scope="col">Revision</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Current</th>
+                            <th scope="col">Created</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for revision in quotation_history %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'quotations:detail' revision.pk %}"
+                                    >
+                                        {{ revision.quotation_number }}
+                                    </a>
+                                </td>
+
+                                <td>{{ revision.revision_number }}</td>
+
+                                <td>{{ revision.get_status_display }}</td>
+
+                                <td>
+                                    {% if revision.is_current %}
+                                        Yes
+                                    {% else %}
+                                        No
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ revision.created_at|date:"d M Y, H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

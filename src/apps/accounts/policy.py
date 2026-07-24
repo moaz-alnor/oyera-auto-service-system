@@ -6,6 +6,9 @@ from apps.jobs.constants import JobPermissionName
 from apps.product_catalogue.constants import (
     ProductPermissionName,
 )
+from apps.quotations.constants import (
+    QuotationPermissionName,
+)
 from apps.service_catalogue.constants import (
     ServicePermissionName,
 )
@@ -54,6 +57,13 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.ADD_INSPECTION.value,
             JobPermissionName.VIEW_JOB_NOTE.value,
             JobPermissionName.ADD_JOB_NOTE.value,
+            QuotationPermissionName.VIEW_QUOTATION.value,
+            QuotationPermissionName.ADD_QUOTATION.value,
+            QuotationPermissionName.CHANGE_QUOTATION.value,
+            QuotationPermissionName.SUBMIT_QUOTATION.value,
+            QuotationPermissionName.APPROVE_QUOTATION.value,
+            QuotationPermissionName.REJECT_QUOTATION.value,
+            QuotationPermissionName.REVISE_QUOTATION.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -75,6 +85,13 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.VIEW_INSPECTION.value,
             JobPermissionName.VIEW_JOB_NOTE.value,
             JobPermissionName.ADD_JOB_NOTE.value,
+            QuotationPermissionName.VIEW_QUOTATION.value,
+            QuotationPermissionName.ADD_QUOTATION.value,
+            QuotationPermissionName.CHANGE_QUOTATION.value,
+            QuotationPermissionName.SUBMIT_QUOTATION.value,
+            QuotationPermissionName.APPROVE_QUOTATION.value,
+            QuotationPermissionName.REJECT_QUOTATION.value,
+            QuotationPermissionName.REVISE_QUOTATION.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
@@ -88,6 +105,7 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.ADD_INSPECTION.value,
             JobPermissionName.VIEW_JOB_NOTE.value,
             JobPermissionName.ADD_JOB_NOTE.value,
+            QuotationPermissionName.VIEW_QUOTATION.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
@@ -101,6 +119,7 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.ADD_INSPECTION.value,
             JobPermissionName.VIEW_JOB_NOTE.value,
             JobPermissionName.ADD_JOB_NOTE.value,
+            QuotationPermissionName.VIEW_QUOTATION.value,
         }
     ),
     RoleName.CASHIER: frozenset(
@@ -115,6 +134,7 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.VIEW_JOB_CARD.value,
             JobPermissionName.VIEW_INSPECTION.value,
             JobPermissionName.VIEW_JOB_NOTE.value,
+            QuotationPermissionName.VIEW_QUOTATION.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -144,6 +164,13 @@ ROLE_PERMISSION_POLICY: dict[
             JobPermissionName.ADD_INSPECTION.value,
             JobPermissionName.VIEW_JOB_NOTE.value,
             JobPermissionName.ADD_JOB_NOTE.value,
+            QuotationPermissionName.VIEW_QUOTATION.value,
+            QuotationPermissionName.ADD_QUOTATION.value,
+            QuotationPermissionName.CHANGE_QUOTATION.value,
+            QuotationPermissionName.SUBMIT_QUOTATION.value,
+            QuotationPermissionName.APPROVE_QUOTATION.value,
+            QuotationPermissionName.REJECT_QUOTATION.value,
+            QuotationPermissionName.REVISE_QUOTATION.value,
         }
     ),
 }

@@ -313,4 +313,97 @@
             </div>
         {% endfor %}
     </section>
+    {% if perms.quotations.view_quotation %}
+        <section class="card details-section">
+            <header class="page-header page-header--actions">
+                <div>
+                    <h2>Quotations</h2>
+
+                    <p class="page-header__description">
+                        Estimates and customer approval records for
+                        this workshop visit.
+                    </p>
+                </div>
+
+                {% if perms.quotations.add_quotation %}
+                    {% if not current_quotation and job_card.status != "CANCELLED" %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'quotations:create' %}?job={{ job_card.pk }}"
+                        >
+                            Create quotation
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </header>
+
+            {% if current_quotation %}
+                <div class="details-section">
+                    <h3>Current revision</h3>
+
+                    <p>
+                        <a
+                            href="{% url 'quotations:detail' current_quotation.pk %}"
+                        >
+                            {{ current_quotation.quotation_number }}
+                        </a>
+                    </p>
+
+                    <p>
+                        <strong>Status:</strong>
+                        {{ current_quotation.get_status_display }}
+                    </p>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No current quotation</h3>
+
+                    <p>
+                        No quotation has been prepared for this job.
+                    </p>
+                </div>
+            {% endif %}
+
+            {% if quotation_history %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Quotation</th>
+                                <th scope="col">Revision</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Created</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for quotation in quotation_history %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'quotations:detail' quotation.pk %}"
+                                        >
+                                            {{ quotation.quotation_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ quotation.revision_number }}
+                                    </td>
+
+                                    <td>
+                                        {{ quotation.get_status_display }}
+                                    </td>
+
+                                    <td>
+                                        {{ quotation.created_at|date:"d M Y, H:i" }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
 {% endblock %}
