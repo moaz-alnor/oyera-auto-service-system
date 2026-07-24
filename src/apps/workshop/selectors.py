@@ -4,6 +4,8 @@ from django.db.models import Prefetch, Q, QuerySet
 
 from apps.accounts.constants import RoleName
 from apps.accounts.models import User
+from apps.quotations.constants import QuotationStatus
+from apps.quotations.models import Quotation
 from apps.workshop.models import (
     TechnicianAssignment,
     WorkOrder,
@@ -163,3 +165,41 @@ def get_available_technicians() -> QuerySet[User]:
             "username",
         )
     )
+
+
+def get_approved_quotations_available_for_work_order() -> QuerySet[Quotation]:
+    """Return approved quotations not yet used for execution."""
+
+    return (
+        Quotation.objects.filter(
+            status=QuotationStatus.APPROVED,
+            is_current=True,
+            work_order__isnull=True,
+        )
+        .select_related(
+            "job_card",
+            "job_card__customer",
+            "job_card__vehicle",
+        )
+        .order_by(
+            "-decision_at",
+            "-created_at",
+        )
+    )
+
+
+def get_available_technicians_for_task(
+    *,
+    work_task_id: int,
+) -> QuerySet[User]:
+    """Return eligible technicians not assigned to a task."""
+
+    active_technician_ids = TechnicianAssignment.objects.filter(
+        work_task_id=work_task_id,
+        is_active=True,
+    ).values_list(
+        "technician_id",
+        flat=True,
+    )
+
+    return get_available_technicians().exclude(pk__in=active_technician_ids)

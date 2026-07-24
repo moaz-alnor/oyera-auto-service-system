@@ -1,0 +1,78 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Remove technician | Workshop
+{% endblock %}
+
+{% block app_content %}
+    <section class="page-header">
+        <div>
+            <p class="eyebrow">Technician assignment</p>
+            <h1>Remove technician</h1>
+            <p>
+                {{ assignment.technician }}
+                —
+                {{ work_task.service_name_snapshot }}
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'workshop:detail' work_order.pk %}"
+        >
+            Back to work order
+        </a>
+    </section>
+
+    <section class="card form-card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="alert alert--error">
+                    {{ form.non_field_errors }}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    {{ field.label_tag }}
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="alert alert--warning">
+                The assignment will remain in the work-order
+                history, but it will no longer be active.
+            </div>
+
+            <div class="button-group">
+                <button
+                    class="button button--danger"
+                    type="submit"
+                >
+                    Remove technician
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'workshop:detail' work_order.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
