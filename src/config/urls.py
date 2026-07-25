@@ -31,6 +31,10 @@ urlpatterns = [
         include("apps.jobs.urls"),
     ),
     path(
+        "inventory/",
+        include("apps.inventory.urls"),
+    ),
+    path(
         "workshop/",
         include("apps.workshop.urls"),
     ),

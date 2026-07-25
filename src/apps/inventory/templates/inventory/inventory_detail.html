@@ -1,0 +1,306 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ inventory_item.product.sku }} Inventory | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ inventory_item.product.sku }}
+            </p>
+
+            <h1>{{ inventory_item.product.name }}</h1>
+
+            <p class="page-header__description">
+                Stock held at
+                {{ inventory_item.location.code }} —
+                {{ inventory_item.location.name }}.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'inventory:list' %}"
+            >
+                Back to inventory
+            </a>
+
+            {% if inventory_item.is_active %}
+                {% if perms.inventory.receive_stock %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'inventory:receive' inventory_item.pk %}"
+                    >
+                        Receive stock
+                    </a>
+                {% endif %}
+
+                {% if perms.inventory.adjust_stock %}
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'inventory:adjust' inventory_item.pk %}"
+                    >
+                        Adjust stock
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if perms.inventory.view_stockmovement %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:movement_list' %}?q={{ inventory_item.product.sku|urlencode }}"
+                >
+                    Movement ledger
+                </a>
+            {% endif %}
+            
+        </div>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+
+                <dd>
+                    {% if inventory_item.is_active %}
+                        <span class="status-badge status-badge--active">
+                            Active
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-badge--inactive">
+                            Inactive
+                        </span>
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Product SKU</dt>
+                <dd>{{ inventory_item.product.sku }}</dd>
+            </div>
+
+            <div>
+                <dt>Product</dt>
+                <dd>{{ inventory_item.product.name }}</dd>
+            </div>
+
+            <div>
+                <dt>Category</dt>
+                <dd>{{ inventory_item.product.category.name }}</dd>
+            </div>
+
+            <div>
+                <dt>Unit of measure</dt>
+                <dd>{{ inventory_item.product.get_unit_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Stock location</dt>
+
+                <dd>
+                    {{ inventory_item.location.code }} —
+                    {{ inventory_item.location.name }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Reorder level</dt>
+
+                <dd>
+                    {{ inventory_item.reorder_level|floatformat:3 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Created by</dt>
+                <dd>{{ inventory_item.created_by }}</dd>
+            </div>
+
+            <div>
+                <dt>Created</dt>
+
+                <dd>
+                    {{ inventory_item.created_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Last updated</dt>
+
+                <dd>
+                    {{ inventory_item.updated_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+        </dl>
+
+        {% if inventory_item.notes %}
+            <div class="details-section">
+                <h2>Inventory notes</h2>
+
+                <p>
+                    {{ inventory_item.notes|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card details-section">
+        <h2>Current balance</h2>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Physical stock on hand</dt>
+
+                <dd>
+                    {{ balance.on_hand_quantity|floatformat:3 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Reserved for workshop</dt>
+
+                <dd>
+                    {{ balance.reserved_quantity|floatformat:3 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Available stock</dt>
+
+                <dd>
+                    <strong>
+                        {{ balance.available_quantity|floatformat:3 }}
+                    </strong>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Stock-level status</dt>
+
+                <dd>
+                    {% if balance.is_low_stock %}
+                        <span class="status-badge status-badge--inactive">
+                            At or below reorder level
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-badge--active">
+                            Above reorder level
+                        </span>
+                    {% endif %}
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card details-section">
+        <h2>Reservation history</h2>
+
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Work order</th>
+                        <th scope="col">Required product</th>
+                        <th scope="col">Status</th>
+                        <th scope="col">Reserved</th>
+                        <th scope="col">Issued</th>
+                        <th scope="col">Released</th>
+                        <th scope="col">Remaining</th>
+                        <th scope="col">Reserved by</th>
+                        <th scope="col">Created</th>
+                        <th scope="col">Actions</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for reservation in reservations %}
+                        <tr>
+                            <td>
+                                {% if perms.workshop.view_workorder %}
+                                    <a
+                                        href="{% url 'workshop:detail' reservation.work_product_requirement.work_order.pk %}"
+                                    >
+                                        {{ reservation.work_product_requirement.work_order.work_order_number }}
+                                    </a>
+                                {% else %}
+                                    {{ reservation.work_product_requirement.work_order.work_order_number }}
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {{ reservation.work_product_requirement.product_name_snapshot }}
+                            </td>
+
+                            <td>
+                                {{ reservation.get_status_display }}
+                            </td>
+
+                            <td>
+                                {{ reservation.quantity_reserved|floatformat:3 }}
+                            </td>
+
+                            <td>
+                                {{ reservation.quantity_issued|floatformat:3 }}
+                            </td>
+
+                            <td>
+                                {{ reservation.quantity_released|floatformat:3 }}
+                            </td>
+
+                            <td>
+                                {{ reservation.remaining_quantity|floatformat:3 }}
+                            </td>
+
+                            <td>
+                                {{ reservation.reserved_by }}
+                            </td>
+
+                            <td>
+                                {{ reservation.created_at|date:"d M Y, H:i" }}
+                            </td>
+
+                            <td>
+                                <div class="button-group">
+                                    {% if reservation.status == "ACTIVE" or reservation.status == "PARTIALLY_ISSUED" %}
+                                        {% if perms.inventory.issue_stock %}
+                                            <a
+                                                class="button button--secondary"
+                                                href="{% url 'inventory:issue' reservation.pk %}"
+                                            >
+                                                Issue
+                                            </a>
+                                        {% endif %}
+
+                                        {% if perms.inventory.release_stock_reservation %}
+                                            {% if reservation.remaining_quantity > 0 %}
+                                                <a
+                                                    class="button button--secondary"
+                                                    href="{% url 'inventory:release' reservation.pk %}"
+                                                >
+                                                    Release
+                                                </a>
+                                            {% endif %}
+                                        {% endif %}
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="10">
+                                This inventory item has no
+                                reservation history.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    
+{% endblock %}

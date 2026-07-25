@@ -1,0 +1,94 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Issue Workshop Stock | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Workshop stock issue
+        </p>
+
+        <h1>Issue {{ reservation.inventory_item.product.name }}</h1>
+
+        <p class="page-header__description">
+            Record physical stock issued to
+            {{ reservation.work_product_requirement.work_order.work_order_number }}.
+        </p>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Product</dt>
+                <dd>
+                    {{ reservation.inventory_item.product.sku }} —
+                    {{ reservation.inventory_item.product.name }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Location</dt>
+                <dd>{{ reservation.inventory_item.location.code }}</dd>
+            </div>
+
+            <div>
+                <dt>Reservation remaining</dt>
+                <dd>{{ reservation.remaining_quantity|floatformat:3 }}</dd>
+            </div>
+
+            <div>
+                <dt>Physical stock on hand</dt>
+                <dd>{{ balance.on_hand_quantity|floatformat:3 }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <form class="form" method="post">
+            {% csrf_token %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">{{ field.help_text }}</p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            {% for error in form.non_field_errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:detail' reservation.inventory_item.pk %}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Issue stock
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

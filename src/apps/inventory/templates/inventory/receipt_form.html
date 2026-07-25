@@ -1,0 +1,118 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Receive {{ inventory_item.product.sku }}
+    | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Stock receipt
+        </p>
+
+        <h1>Receive {{ inventory_item.product.name }}</h1>
+
+        <p class="page-header__description">
+            Add physical stock to
+            {{ inventory_item.location.code }}.
+        </p>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Product</dt>
+
+                <dd>
+                    {{ inventory_item.product.sku }} —
+                    {{ inventory_item.product.name }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Location</dt>
+
+                <dd>
+                    {{ inventory_item.location.code }} —
+                    {{ inventory_item.location.name }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Current on hand</dt>
+
+                <dd>
+                    {{ balance.on_hand_quantity|floatformat:3 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Current available</dt>
+
+                <dd>
+                    {{ balance.available_quantity|floatformat:3 }}
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+        >
+            {% csrf_token %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:detail' inventory_item.pk %}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Record receipt
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

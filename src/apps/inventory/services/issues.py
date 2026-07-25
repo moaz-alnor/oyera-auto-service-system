@@ -294,14 +294,14 @@ def return_issued_stock(
         permission=InventoryPermissionName.RETURN_STOCK,
     )
     _validate_positive_quantity(quantity=command.quantity)
-
+    # Do not join the nullable reservation relation in this
+    # locking query. PostgreSQL rejects FOR UPDATE when it is
+    # applied to the nullable side of an outer join. The
+    # reservation is fetched and locked separately below.
     try:
         source_movement = (
             StockMovement.objects.select_for_update()
-            .select_related(
-                "reservation",
-                "inventory_item",
-            )
+            .select_related("inventory_item")
             .get(pk=command.source_movement_id)
         )
     except StockMovement.DoesNotExist as exc:

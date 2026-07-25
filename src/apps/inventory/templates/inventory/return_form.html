@@ -1,0 +1,94 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Return Workshop Stock | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Workshop stock return
+        </p>
+
+        <h1>Return issued stock</h1>
+
+        <p class="page-header__description">
+            Return unused physical stock from
+            {{ source_movement.movement_number }}.
+        </p>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Product</dt>
+                <dd>
+                    {{ source_movement.inventory_item.product.sku }} —
+                    {{ source_movement.inventory_item.product.name }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Original issue</dt>
+                <dd>{{ source_movement.movement_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Originally issued</dt>
+                <dd>{{ source_movement.quantity|floatformat:3 }}</dd>
+            </div>
+
+            <div>
+                <dt>Returnable quantity</dt>
+                <dd>{{ form.returnable_quantity|floatformat:3 }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <form class="form" method="post">
+            {% csrf_token %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">{{ field.help_text }}</p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            {% for error in form.non_field_errors %}
+                <p class="form-error">{{ error }}</p>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:detail' source_movement.inventory_item.pk %}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Return stock
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

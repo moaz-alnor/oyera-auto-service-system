@@ -8,6 +8,7 @@ from django.db.models import (
     DecimalField,
     ExpressionWrapper,
     F,
+    Q,
     QuerySet,
     Sum,
     Value,
@@ -156,3 +157,128 @@ def get_low_stock_items() -> list[InventoryBalance]:
     ]
 
     return [balance for balance in balances if balance.is_low_stock]
+
+
+def search_inventory_balances(
+    *,
+    query: str = "",
+    location_id: int | None = None,
+    low_stock_only: bool = False,
+) -> list[InventoryBalance]:
+    """Return inventory balances matching browser filters."""
+
+    inventory_items = get_inventory_items()
+
+    normalized_query = query.strip()
+
+    if normalized_query:
+        inventory_items = inventory_items.filter(
+            Q(product__sku__icontains=normalized_query)
+            | Q(product__name__icontains=normalized_query)
+            | Q(product__manufacturer_part_number__icontains=(normalized_query))
+            | Q(location__code__icontains=normalized_query)
+            | Q(location__name__icontains=normalized_query)
+        )
+
+    if location_id is not None:
+        inventory_items = inventory_items.filter(location_id=location_id)
+
+    balances = [
+        get_inventory_balance(inventory_item_id=inventory_item.pk)
+        for inventory_item in inventory_items
+    ]
+
+    if low_stock_only:
+        balances = [balance for balance in balances if balance.is_low_stock]
+
+    return balances
+
+
+def get_inventory_item_by_id(
+    *,
+    inventory_item_id: int,
+) -> InventoryItem:
+    """Return one inventory item with related records."""
+
+    return get_inventory_items().get(pk=inventory_item_id)
+
+
+def get_inventory_item_reservations(
+    *,
+    inventory_item_id: int,
+) -> QuerySet[StockReservation]:
+    """Return reservation history for one inventory item."""
+
+    return (
+        StockReservation.objects.filter(inventory_item_id=inventory_item_id)
+        .select_related(
+            "inventory_item",
+            "work_product_requirement",
+            "work_product_requirement__work_order",
+            "reserved_by",
+            "released_by",
+        )
+        .order_by(
+            "-created_at",
+            "-pk",
+        )
+    )
+
+
+def get_inventory_item_movements(
+    *,
+    inventory_item_id: int,
+) -> QuerySet[StockMovement]:
+    """Return movement history for one inventory item."""
+
+    return (
+        StockMovement.objects.filter(inventory_item_id=inventory_item_id)
+        .select_related(
+            "inventory_item",
+            "inventory_item__product",
+            "inventory_item__location",
+            "reservation",
+            "source_movement",
+            "created_by",
+        )
+        .order_by(
+            "-occurred_at",
+            "-pk",
+        )
+    )
+
+
+def search_stock_movements(
+    *,
+    query: str = "",
+    movement_type: str = "",
+) -> QuerySet[StockMovement]:
+    """Return stock-ledger entries matching browser filters."""
+
+    movements = StockMovement.objects.select_related(
+        "inventory_item",
+        "inventory_item__product",
+        "inventory_item__location",
+        "reservation",
+        "source_movement",
+        "created_by",
+    )
+
+    normalized_query = query.strip()
+
+    if normalized_query:
+        movements = movements.filter(
+            Q(movement_number__icontains=(normalized_query))
+            | Q(inventory_item__product__sku__icontains=(normalized_query))
+            | Q(inventory_item__product__name__icontains=(normalized_query))
+            | Q(inventory_item__location__code__icontains=(normalized_query))
+            | Q(external_reference__icontains=(normalized_query))
+        )
+
+    if movement_type:
+        movements = movements.filter(movement_type=movement_type)
+
+    return movements.order_by(
+        "-occurred_at",
+        "-pk",
+    )
