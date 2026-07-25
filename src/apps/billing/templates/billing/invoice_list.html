@@ -1,0 +1,230 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Billing | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Customer billing
+            </p>
+
+            <h1>Invoices</h1>
+
+            <p class="page-header__description">
+                Review workshop invoices, payment status,
+                due dates, and customer balances.
+            </p>
+        </div>
+
+        {% if perms.billing.add_invoice %}
+            <a
+                class="button button--primary"
+                href="{% url 'billing:create' %}"
+            >
+                Create invoice
+            </a>
+        {% endif %}
+    </header>
+
+    <section class="card">
+        <form
+            method="get"
+            class="filter-form"
+        >
+            <div class="form-group">
+                <label for="invoice-search">
+                    Search
+                </label>
+
+                <input
+                    id="invoice-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Invoice, work order, job, customer, phone, or vehicle"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="invoice-status">
+                    Status
+                </label>
+
+                <select
+                    id="invoice-status"
+                    class="form-control"
+                    name="status"
+                >
+                    <option value="">
+                        All statuses
+                    </option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_status == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply filters
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'billing:list' %}"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                Invoice
+                            </th>
+
+                            <th scope="col">
+                                Work order
+                            </th>
+
+                            <th scope="col">
+                                Customer
+                            </th>
+
+                            <th scope="col">
+                                Vehicle
+                            </th>
+
+                            <th scope="col">
+                                Status
+                            </th>
+
+                            <th scope="col">
+                                Total
+                            </th>
+
+                            <th scope="col">
+                                Due date
+                            </th>
+
+                            <th scope="col">
+                                Created
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for invoice in page %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'billing:detail' invoice.pk %}"
+                                    >
+                                        {{ invoice.invoice_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    <a
+                                        href="{% url 'workshop:detail' invoice.work_order.pk %}"
+                                    >
+                                        {{ invoice.work_order_number_snapshot }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ invoice.customer_name_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ invoice.vehicle_registration_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ invoice.get_status_display }}
+                                </td>
+
+                                <td>
+                                    {{ invoice.currency }}
+                                    {{ invoice.total|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {% if invoice.due_date %}
+                                        {{ invoice.due_date|date:"d M Y" }}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ invoice.created_at|date:"d M Y, H:i" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.paginator.num_pages > 1 %}
+                <nav
+                    class="pagination"
+                    aria-label="Invoice pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }}
+                        of {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No invoices found</h2>
+
+                <p>
+                    No invoices match the selected search
+                    and status filters.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

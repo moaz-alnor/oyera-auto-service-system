@@ -87,6 +87,18 @@
                 Inventory
             </a>
         {% endif %}
+        {% if perms.billing.view_invoice %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'billing' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'billing:list' %}"
+            >
+                Billing
+            </a>
+        {% endif %}
         {% if perms.service_catalogue.view_service %}
             <a
                 class="sidebar-nav__link

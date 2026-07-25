@@ -1,0 +1,107 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Issue {{ invoice.invoice_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Customer invoice issue
+        </p>
+
+        <h1>Issue {{ invoice.invoice_number }}</h1>
+
+        <p class="page-header__description">
+            Confirm the payment due date before issuing
+            this invoice to the customer.
+        </p>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Work order</dt>
+                <dd>{{ invoice.work_order_number_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Customer</dt>
+                <dd>{{ invoice.customer_name_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Vehicle</dt>
+                <dd>
+                    {{ invoice.vehicle_registration_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Invoice total</dt>
+                <dd>
+                    <strong>
+                        {{ invoice.currency }}
+                        {{ invoice.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Issue invoice
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'billing:detail' invoice.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

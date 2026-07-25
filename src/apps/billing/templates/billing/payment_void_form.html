@@ -1,0 +1,116 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Void {{ payment.payment_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Payment correction
+        </p>
+
+        <h1>Void {{ payment.payment_number }}</h1>
+
+        <p class="page-header__description">
+            Mark this payment entry as invalid while
+            preserving its audit history.
+        </p>
+    </header>
+
+    <section class="card">
+        <div class="message message--error">
+            <p>
+                The payment will remain visible, but it will
+                no longer count towards the invoice balance.
+            </p>
+        </div>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Invoice</dt>
+                <dd>{{ invoice.invoice_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Payment</dt>
+                <dd>{{ payment.payment_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Amount</dt>
+                <dd>
+                    {{ payment.currency }}
+                    {{ payment.amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Method</dt>
+                <dd>{{ payment.get_payment_method_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Paid at</dt>
+                <dd>
+                    {{ payment.paid_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Received by</dt>
+                <dd>{{ payment.received_by }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button
+                    class="button button--danger"
+                    type="submit"
+                >
+                    Void payment
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'billing:detail' invoice.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}

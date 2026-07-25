@@ -23,7 +23,27 @@
             >
                 Back to workshop
             </a>
-
+            {% if work_order.status == "COMPLETED" %}
+            {% if work_order.invoice %}
+                {% if perms.billing.view_invoice %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'billing:detail' work_order.invoice.pk %}"
+                    >
+                        View invoice
+                    </a>
+                {% endif %}
+            {% else %}
+                {% if perms.billing.add_invoice %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'billing:create' %}?work_order={{ work_order.pk }}"
+                    >
+                        Create invoice
+                    </a>
+                {% endif %}
+            {% endif %}
+        {% endif %}
             {% if work_order.status == "READY" %}
                 {% if perms.workshop.start_work_order %}
                     <form
@@ -208,40 +228,5 @@
         {% endfor %}
     </section>
 
-    <section class="card">
-        <h2>Approved product requirements</h2>
 
-        {% for requirement in work_order.product_requirements.all %}
-            <article class="list-item">
-                <div>
-                    <h3>
-                        {{ requirement.product_name_snapshot }}
-                    </h3>
-
-                    <p>
-                        {{ requirement.product_sku_snapshot }}
-                        ·
-                        {{ requirement.approved_quantity }}
-                        {{ requirement.unit_snapshot }}
-                    </p>
-                </div>
-
-                <span>
-                    {{ requirement.get_inventory_status_display }}
-                </span>
-            </article>
-        {% empty %}
-            <p>No products were approved for this work order.</p>
-        {% endfor %}
-        {% if perms.inventory.reserve_stock %}
-            {% if requirement.inventory_status == "NOT_RESERVED" or requirement.inventory_status == "PARTIALLY_RESERVED" %}
-                <a
-                    class="button button--secondary"
-                    href="{% url 'inventory:reserve' requirement.pk %}"
-                >
-                    Reserve stock
-                </a>
-            {% endif %}
-        {% endif %}
-    </section>
 {% endblock %}
