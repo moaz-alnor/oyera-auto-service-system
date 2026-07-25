@@ -1,0 +1,249 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Inventory | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Inventory control
+            </p>
+
+            <h1>Inventory</h1>
+
+            <p class="page-header__description">
+                Review physical stock, workshop reservations,
+                available quantities, and reorder levels.
+            </p>
+        </div>
+
+        <div class="page-actions">
+           {% if perms.inventory.add_stocklocation %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:location_create' %}"
+                >
+                    Add location
+                </a>
+            {% endif %}
+
+            {% if perms.inventory.add_inventoryitem %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'inventory:item_create' %}"
+                >
+                    Add inventory item
+                </a>
+            {% endif %}
+
+            {% if perms.inventory.view_stockmovement %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:movement_list' %}"
+                >
+                    Movement ledger
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="inventory-search"
+                >
+                    Search inventory
+                </label>
+
+                <input
+                    id="inventory-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="SKU, product, part number, or location"
+                >
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="location-filter"
+                >
+                    Stock location
+                </label>
+
+                <select
+                    id="location-filter"
+                    class="form-control"
+                    name="location"
+                >
+                    <option value="">
+                        All locations
+                    </option>
+
+                    {% for location in locations %}
+                        <option
+                            value="{{ location.pk }}"
+                            {% if selected_location_id == location.pk %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ location.code }} — {{ location.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <label class="checkbox-field">
+                <input
+                    type="checkbox"
+                    name="low_stock"
+                    value="1"
+                    {% if low_stock_only %}checked{% endif %}
+                >
+
+                Low stock only
+            </label>
+
+            <div class="button-group">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply filters
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:list' %}"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if balances %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">SKU</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Location</th>
+                            <th scope="col">On hand</th>
+                            <th scope="col">Reserved</th>
+                            <th scope="col">Available</th>
+                            <th scope="col">Reorder level</th>
+                            <th scope="col">Stock status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for balance in balances %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'inventory:detail' balance.inventory_item.pk %}"
+                                    >
+                                        {{ balance.inventory_item.product.sku }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ balance.inventory_item.product.name }}
+                                </td>
+
+                                <td>
+                                    {{ balance.inventory_item.location.code }}
+                                </td>
+
+                                <td>
+                                    {{ balance.on_hand_quantity|floatformat:3 }}
+                                </td>
+
+                                <td>
+                                    {{ balance.reserved_quantity|floatformat:3 }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ balance.available_quantity|floatformat:3 }}
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    {{ balance.inventory_item.reorder_level|floatformat:3 }}
+                                </td>
+
+                                <td>
+                                    {% if not balance.inventory_item.is_active %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Inactive
+                                        </span>
+                                    {% elif balance.is_low_stock %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Low stock
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--active">
+                                            Available
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.has_other_pages %}
+                <nav
+                    class="pagination"
+                    aria-label="Inventory pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&location={{ selected_location_id|default_if_none:'' }}{% if low_stock_only %}&low_stock=1{% endif %}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }} of
+                        {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&location={{ selected_location_id|default_if_none:'' }}{% if low_stock_only %}&low_stock=1{% endif %}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No inventory records found</h2>
+
+                <p>
+                    Change the search filters or create the first
+                    product-location inventory record.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

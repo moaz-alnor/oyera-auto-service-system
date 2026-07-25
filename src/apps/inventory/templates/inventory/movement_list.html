@@ -1,0 +1,208 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Stock Movement Ledger | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Inventory control
+            </p>
+
+            <h1>Stock movement ledger</h1>
+
+            <p class="page-header__description">
+                Review receipts, issues, returns, and auditable
+                stock adjustments.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'inventory:list' %}"
+            >
+                Back to inventory
+            </a>
+        </div>
+    </header>
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="movement-search"
+                >
+                    Search movements
+                </label>
+
+                <input
+                    id="movement-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Movement, SKU, product, location, or reference"
+                >
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="movement-type-filter"
+                >
+                    Movement type
+                </label>
+
+                <select
+                    id="movement-type-filter"
+                    class="form-control"
+                    name="movement_type"
+                >
+                    <option value="">
+                        All movement types
+                    </option>
+
+                    {% for value, label in movement_types %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_movement_type == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="button-group">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply filters
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'inventory:movement_list' %}"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if movements %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Movement</th>
+                            <th scope="col">Occurred</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Location</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Reference</th>
+                            <th scope="col">Recorded by</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for movement in movements %}
+                            <tr>
+                                <td>
+                                    {{ movement.movement_number }}
+                                </td>
+
+                                <td>
+                                    {{ movement.occurred_at|date:"d M Y, H:i" }}
+                                </td>
+
+                                <td>
+                                    <a
+                                        href="{% url 'inventory:detail' movement.inventory_item.pk %}"
+                                    >
+                                        {{ movement.inventory_item.product.sku }}
+                                    </a>
+
+                                    <br>
+
+                                    {{ movement.inventory_item.product.name }}
+                                </td>
+
+                                <td>
+                                    {{ movement.inventory_item.location.code }}
+                                </td>
+
+                                <td>
+                                    {{ movement.get_movement_type_display }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ movement.signed_quantity|floatformat:3 }}
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    {{ movement.external_reference|default:"—" }}
+                                </td>
+
+                                <td>{{ movement.created_by }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.has_other_pages %}
+                <nav
+                    class="pagination"
+                    aria-label="Stock movement pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&movement_type={{ selected_movement_type|urlencode }}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }} of
+                        {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&movement_type={{ selected_movement_type|urlencode }}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                <h2>No stock movements found</h2>
+
+                <p>
+                    Change the filters or record the first
+                    inventory transaction.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

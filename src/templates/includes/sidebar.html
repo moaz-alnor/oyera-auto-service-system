@@ -75,6 +75,18 @@
                 Workshop
             </a>
         {% endif %}
+        {% if perms.inventory.view_inventoryitem %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'inventory' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'inventory:list' %}"
+            >
+                Inventory
+            </a>
+        {% endif %}
         {% if perms.service_catalogue.view_service %}
             <a
                 class="sidebar-nav__link
