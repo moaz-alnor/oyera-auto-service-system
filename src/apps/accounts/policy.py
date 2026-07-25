@@ -2,6 +2,7 @@
 
 from apps.accounts.constants import PermissionName, RoleName
 from apps.customers.constants import CustomerPermissionName
+from apps.inventory.constants import InventoryPermissionName
 from apps.jobs.constants import JobPermissionName
 from apps.product_catalogue.constants import (
     ProductPermissionName,
@@ -84,6 +85,20 @@ ROLE_PERMISSION_POLICY: dict[
             WorkshopPermissionName.START_WORK_TASK.value,
             WorkshopPermissionName.BLOCK_WORK_TASK.value,
             WorkshopPermissionName.COMPLETE_WORK_TASK.value,
+            InventoryPermissionName.VIEW_STOCK_LOCATION.value,
+            InventoryPermissionName.ADD_STOCK_LOCATION.value,
+            InventoryPermissionName.CHANGE_STOCK_LOCATION.value,
+            InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
+            InventoryPermissionName.ADD_INVENTORY_ITEM.value,
+            InventoryPermissionName.CHANGE_INVENTORY_ITEM.value,
+            InventoryPermissionName.VIEW_RESERVATION.value,
+            InventoryPermissionName.VIEW_MOVEMENT.value,
+            InventoryPermissionName.RECEIVE_STOCK.value,
+            InventoryPermissionName.RESERVE_STOCK.value,
+            InventoryPermissionName.RELEASE_RESERVATION.value,
+            InventoryPermissionName.ISSUE_STOCK.value,
+            InventoryPermissionName.RETURN_STOCK.value,
+            InventoryPermissionName.ADJUST_STOCK.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -117,6 +132,8 @@ ROLE_PERMISSION_POLICY: dict[
             WorkshopPermissionName.VIEW_ASSIGNMENT.value,
             WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
             WorkshopPermissionName.VIEW_TASK_NOTE.value,
+            InventoryPermissionName.VIEW_STOCK_LOCATION.value,
+            InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
@@ -148,6 +165,14 @@ ROLE_PERMISSION_POLICY: dict[
             WorkshopPermissionName.START_WORK_TASK.value,
             WorkshopPermissionName.BLOCK_WORK_TASK.value,
             WorkshopPermissionName.COMPLETE_WORK_TASK.value,
+            InventoryPermissionName.VIEW_STOCK_LOCATION.value,
+            InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
+            InventoryPermissionName.VIEW_RESERVATION.value,
+            InventoryPermissionName.VIEW_MOVEMENT.value,
+            InventoryPermissionName.RESERVE_STOCK.value,
+            InventoryPermissionName.RELEASE_RESERVATION.value,
+            InventoryPermissionName.ISSUE_STOCK.value,
+            InventoryPermissionName.RETURN_STOCK.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
@@ -172,6 +197,9 @@ ROLE_PERMISSION_POLICY: dict[
             WorkshopPermissionName.START_WORK_TASK.value,
             WorkshopPermissionName.BLOCK_WORK_TASK.value,
             WorkshopPermissionName.COMPLETE_WORK_TASK.value,
+            InventoryPermissionName.VIEW_STOCK_LOCATION.value,
+            InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
+            InventoryPermissionName.VIEW_RESERVATION.value,
         }
     ),
     RoleName.CASHIER: frozenset(
@@ -189,6 +217,8 @@ ROLE_PERMISSION_POLICY: dict[
             QuotationPermissionName.VIEW_QUOTATION.value,
             WorkshopPermissionName.VIEW_WORK_ORDER.value,
             WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
+            InventoryPermissionName.VIEW_STOCK_LOCATION.value,
+            InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -244,6 +274,20 @@ ROLE_PERMISSION_POLICY: dict[
             WorkshopPermissionName.START_WORK_TASK.value,
             WorkshopPermissionName.BLOCK_WORK_TASK.value,
             WorkshopPermissionName.COMPLETE_WORK_TASK.value,
+            InventoryPermissionName.VIEW_STOCK_LOCATION.value,
+            InventoryPermissionName.ADD_STOCK_LOCATION.value,
+            InventoryPermissionName.CHANGE_STOCK_LOCATION.value,
+            InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
+            InventoryPermissionName.ADD_INVENTORY_ITEM.value,
+            InventoryPermissionName.CHANGE_INVENTORY_ITEM.value,
+            InventoryPermissionName.VIEW_RESERVATION.value,
+            InventoryPermissionName.VIEW_MOVEMENT.value,
+            InventoryPermissionName.RECEIVE_STOCK.value,
+            InventoryPermissionName.RESERVE_STOCK.value,
+            InventoryPermissionName.RELEASE_RESERVATION.value,
+            InventoryPermissionName.ISSUE_STOCK.value,
+            InventoryPermissionName.RETURN_STOCK.value,
+            InventoryPermissionName.ADJUST_STOCK.value,
         }
     ),
 }
