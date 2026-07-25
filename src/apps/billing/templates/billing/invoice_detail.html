@@ -1,0 +1,553 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ invoice.invoice_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Customer invoice
+            </p>
+
+            <h1>{{ invoice.invoice_number }}</h1>
+
+            <p class="page-header__description">
+                Invoice for
+                <a href="{% url 'workshop:detail' invoice.work_order.pk %}">
+                    {{ invoice.work_order_number_snapshot }}
+                </a>
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'billing:list' %}"
+            >
+                Back to billing
+            </a>
+
+            {% if invoice.status == "DRAFT" %}
+                {% if perms.billing.issue_invoice %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'billing:issue' invoice.pk %}"
+                    >
+                        Issue invoice
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if invoice.status == "ISSUED" or invoice.status == "PARTIALLY_PAID" %}
+                {% if perms.billing.record_payment %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'billing:payment_create' invoice.pk %}"
+                    >
+                        Record payment
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if invoice.status == "ISSUED" %}
+                {% if perms.billing.void_invoice %}
+                    <a
+                        class="button button--danger"
+                        href="{% url 'billing:void' invoice.pk %}"
+                    >
+                        Void invoice
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </header>
+
+    {% if is_overdue %}
+        <div class="message message--error">
+            <p>
+                This invoice is overdue and still has an
+                outstanding balance.
+            </p>
+        </div>
+    {% endif %}
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>{{ invoice.get_status_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Work order</dt>
+                <dd>
+                    <a
+                        href="{% url 'workshop:detail' invoice.work_order.pk %}"
+                    >
+                        {{ invoice.work_order_number_snapshot }}
+                    </a>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Job card</dt>
+                <dd>
+                    <a
+                        href="{% url 'jobs:detail' invoice.work_order.job_card.pk %}"
+                    >
+                        {{ invoice.job_number_snapshot }}
+                    </a>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Quotation</dt>
+                <dd>
+                    <a
+                        href="{% url 'quotations:detail' invoice.work_order.approved_quotation.pk %}"
+                    >
+                        {{ invoice.quotation_number_snapshot }}
+                    </a>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Customer</dt>
+                <dd>{{ invoice.customer_name_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Phone</dt>
+                <dd>
+                    {{ invoice.customer_phone_snapshot|default:"—" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Email</dt>
+                <dd>
+                    {{ invoice.customer_email_snapshot|default:"—" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Vehicle registration</dt>
+                <dd>
+                    {{ invoice.vehicle_registration_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Vehicle</dt>
+                <dd>
+                    {{ invoice.vehicle_make_snapshot }}
+                    {{ invoice.vehicle_model_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Vehicle year</dt>
+                <dd>
+                    {{ invoice.vehicle_year_snapshot|default:"—" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Issued at</dt>
+                <dd>
+                    {% if invoice.issued_at %}
+                        {{ invoice.issued_at|date:"d M Y, H:i" }}
+                    {% else %}
+                        Not issued
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Due date</dt>
+                <dd>
+                    {% if invoice.due_date %}
+                        {{ invoice.due_date|date:"d M Y" }}
+                    {% else %}
+                        —
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Created by</dt>
+                <dd>{{ invoice.created_by }}</dd>
+            </div>
+        </dl>
+
+        {% if invoice.notes %}
+            <div class="details-section">
+                <h2>Invoice notes</h2>
+
+                <p>{{ invoice.notes|linebreaksbr }}</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Service charges</h2>
+
+            <p class="page-header__description">
+                Completed workshop services and their
+                approved price snapshots.
+            </p>
+        </header>
+
+        {% if invoice.service_lines.all %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Position</th>
+                            <th scope="col">Code</th>
+                            <th scope="col">Service</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Unit price</th>
+                            <th scope="col">Line total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in invoice.service_lines.all %}
+                            <tr>
+                                <td>{{ line.position }}</td>
+                                <td>{{ line.service_code_snapshot }}</td>
+
+                                <td>
+                                    <strong>
+                                        {{ line.service_name_snapshot }}
+                                    </strong>
+
+                                    {% if line.description_snapshot %}
+                                        <br>
+                                        {{ line.description_snapshot|linebreaksbr }}
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ line.quantity|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ invoice.currency }}
+                                    {{ line.unit_price|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ invoice.currency }}
+                                    {{ line.line_total|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No service charges</h3>
+
+                <p>
+                    This invoice has no workshop service lines.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Product charges</h2>
+
+            <p class="page-header__description">
+                Parts and consumables based on actual net
+                workshop stock consumption.
+            </p>
+        </header>
+
+        {% if invoice.product_lines.all %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Position</th>
+                            <th scope="col">SKU</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Unit</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Unit price</th>
+                            <th scope="col">Line total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in invoice.product_lines.all %}
+                            <tr>
+                                <td>{{ line.position }}</td>
+                                <td>{{ line.product_sku_snapshot }}</td>
+
+                                <td>
+                                    <strong>
+                                        {{ line.product_name_snapshot }}
+                                    </strong>
+
+                                    {% if line.description_snapshot %}
+                                        <br>
+                                        {{ line.description_snapshot|linebreaksbr }}
+                                    {% endif %}
+                                </td>
+
+                                <td>{{ line.unit_snapshot }}</td>
+
+                                <td>
+                                    {{ line.quantity|floatformat:3 }}
+                                </td>
+
+                                <td>
+                                    {{ invoice.currency }}
+                                    {{ line.unit_price|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ invoice.currency }}
+                                    {{ line.line_total|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No product charges</h3>
+
+                <p>
+                    No physical products were consumed for
+                    this work order.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <h2>Financial summary</h2>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Service subtotal</dt>
+                <dd>
+                    {{ invoice.currency }}
+                    {{ invoice.service_subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Product subtotal</dt>
+                <dd>
+                    {{ invoice.currency }}
+                    {{ invoice.product_subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Subtotal</dt>
+                <dd>
+                    {{ invoice.currency }}
+                    {{ invoice.subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>
+                    Discount
+                    ({{ invoice.discount_percentage|floatformat:2 }}%)
+                </dt>
+
+                <dd>
+                    {{ invoice.currency }}
+                    {{ invoice.discount_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Taxable amount</dt>
+                <dd>
+                    {{ invoice.currency }}
+                    {{ invoice.taxable_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>
+                    Tax
+                    ({{ invoice.tax_percentage|floatformat:2 }}%)
+                </dt>
+
+                <dd>
+                    {{ invoice.currency }}
+                    {{ invoice.tax_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Invoice total</dt>
+                <dd>
+                    <strong>
+                        {{ invoice.currency }}
+                        {{ invoice.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Paid amount</dt>
+                <dd>
+                    {{ invoice.currency }}
+                    {{ balance.paid_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Outstanding balance</dt>
+                <dd>
+                    <strong>
+                        {{ invoice.currency }}
+                        {{ balance.outstanding_amount|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Payment history</h2>
+
+            <p class="page-header__description">
+                Posted and voided customer payment records.
+            </p>
+        </header>
+
+        {% if payments %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Payment</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Amount</th>
+                            <th scope="col">Method</th>
+                            <th scope="col">Reference</th>
+                            <th scope="col">Paid at</th>
+                            <th scope="col">Received by</th>
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>{{ payment.payment_number }}</td>
+                                <td>{{ payment.get_status_display }}</td>
+
+                                <td>
+                                    {{ payment.currency }}
+                                    {{ payment.amount|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ payment.get_payment_method_display }}
+                                </td>
+
+                                <td>
+                                    {{ payment.external_reference|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ payment.paid_at|date:"d M Y, H:i" }}
+                                </td>
+
+                                <td>{{ payment.received_by }}</td>
+
+                                <td>
+                                    {% if payment.status == "POSTED" %}
+                                        {% if perms.billing.void_payment %}
+                                            <a
+                                                class="button button--danger"
+                                                href="{% url 'billing:payment_void' payment.pk %}"
+                                            >
+                                                Void
+                                            </a>
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    {% else %}
+                                        Voided
+                                    {% endif %}
+                                </td>
+                            </tr>
+
+                            {% if payment.status == "VOIDED" %}
+                                <tr>
+                                    <td colspan="8">
+                                        <strong>Void reason:</strong>
+                                        {{ payment.void_reason }}
+
+                                        {% if payment.voided_by %}
+                                            — by {{ payment.voided_by }}
+                                        {% endif %}
+
+                                        {% if payment.voided_at %}
+                                            on
+                                            {{ payment.voided_at|date:"d M Y, H:i" }}
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No payments recorded</h3>
+
+                <p>
+                    No customer payments have been posted
+                    against this invoice.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    {% if invoice.status == "VOIDED" %}
+        <section class="card">
+            <h2>Invoice void information</h2>
+
+            <dl class="details-grid">
+                <div>
+                    <dt>Voided at</dt>
+                    <dd>
+                        {{ invoice.voided_at|date:"d M Y, H:i" }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Voided by</dt>
+                    <dd>{{ invoice.voided_by }}</dd>
+                </div>
+            </dl>
+
+            <div class="details-section">
+                <h3>Reason</h3>
+                <p>{{ invoice.void_reason|linebreaksbr }}</p>
+            </div>
+        </section>
+    {% endif %}
+{% endblock %}

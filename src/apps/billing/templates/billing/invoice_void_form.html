@@ -1,0 +1,104 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Void {{ invoice.invoice_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Invoice correction
+        </p>
+
+        <h1>Void {{ invoice.invoice_number }}</h1>
+
+        <p class="page-header__description">
+            Preserve the invoice record while marking it
+            invalid for future financial use.
+        </p>
+    </header>
+
+    <section class="card">
+        <div class="message message--error">
+            <p>
+                Voiding an invoice cannot be undone.
+                The record will remain visible for audit purposes.
+            </p>
+        </div>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Customer</dt>
+                <dd>{{ invoice.customer_name_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Work order</dt>
+                <dd>{{ invoice.work_order_number_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Current status</dt>
+                <dd>{{ invoice.get_status_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Total</dt>
+                <dd>
+                    {{ invoice.currency }}
+                    {{ invoice.total|floatformat:2 }}
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <form method="post">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button
+                    class="button button--danger"
+                    type="submit"
+                >
+                    Void invoice
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'billing:detail' invoice.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
