@@ -1,6 +1,7 @@
 """Authorization policy for employee roles."""
 
 from apps.accounts.constants import PermissionName, RoleName
+from apps.billing.constants import BillingPermissionName
 from apps.customers.constants import CustomerPermissionName
 from apps.inventory.constants import InventoryPermissionName
 from apps.jobs.constants import JobPermissionName
@@ -99,6 +100,13 @@ ROLE_PERMISSION_POLICY: dict[
             InventoryPermissionName.ISSUE_STOCK.value,
             InventoryPermissionName.RETURN_STOCK.value,
             InventoryPermissionName.ADJUST_STOCK.value,
+            BillingPermissionName.VIEW_INVOICE.value,
+            BillingPermissionName.ADD_INVOICE.value,
+            BillingPermissionName.ISSUE_INVOICE.value,
+            BillingPermissionName.VOID_INVOICE.value,
+            BillingPermissionName.VIEW_PAYMENT.value,
+            BillingPermissionName.RECORD_PAYMENT.value,
+            BillingPermissionName.VOID_PAYMENT.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -219,6 +227,11 @@ ROLE_PERMISSION_POLICY: dict[
             WorkshopPermissionName.VIEW_PRODUCT_REQUIREMENT.value,
             InventoryPermissionName.VIEW_STOCK_LOCATION.value,
             InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
+            BillingPermissionName.VIEW_INVOICE.value,
+            BillingPermissionName.ADD_INVOICE.value,
+            BillingPermissionName.ISSUE_INVOICE.value,
+            BillingPermissionName.VIEW_PAYMENT.value,
+            BillingPermissionName.RECORD_PAYMENT.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -288,6 +301,13 @@ ROLE_PERMISSION_POLICY: dict[
             InventoryPermissionName.ISSUE_STOCK.value,
             InventoryPermissionName.RETURN_STOCK.value,
             InventoryPermissionName.ADJUST_STOCK.value,
+            BillingPermissionName.VIEW_INVOICE.value,
+            BillingPermissionName.ADD_INVOICE.value,
+            BillingPermissionName.ISSUE_INVOICE.value,
+            BillingPermissionName.VOID_INVOICE.value,
+            BillingPermissionName.VIEW_PAYMENT.value,
+            BillingPermissionName.RECORD_PAYMENT.value,
+            BillingPermissionName.VOID_PAYMENT.value,
         }
     ),
 }
