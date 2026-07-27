@@ -1,0 +1,171 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Release Vehicle | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Final vehicle handover
+        </p>
+
+        <h1>
+            Release {{ job_card.vehicle_registration_snapshot }}
+        </h1>
+
+        <p class="page-header__description">
+            Close {{ job_card.job_number }} and preserve the
+            final mileage, condition, receiver, and billing state.
+        </p>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Job card</dt>
+                <dd>{{ job_card.job_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Work order</dt>
+                <dd>{{ work_order.work_order_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Customer</dt>
+                <dd>{{ job_card.customer_name_snapshot }}</dd>
+            </div>
+
+            <div>
+                <dt>Vehicle</dt>
+                <dd>
+                    {{ job_card.vehicle_registration_snapshot }}
+                    — {{ job_card.vehicle_make_snapshot }}
+                    {{ job_card.vehicle_model_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Invoice</dt>
+                <dd>{{ invoice.invoice_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Invoice status</dt>
+                <dd>{{ invoice.get_status_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Invoice total</dt>
+                <dd>
+                    {{ balance.currency }}
+                    {{ balance.total|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Paid amount</dt>
+                <dd>
+                    {{ balance.currency }}
+                    {{ balance.paid_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Outstanding balance</dt>
+                <dd>
+                    {{ balance.currency }}
+                    {{ balance.outstanding_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Minimum final mileage</dt>
+                <dd>{{ minimum_mileage }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    {% if has_outstanding_balance %}
+        {% if allow_payment_override %}
+            <section class="alert alert--error">
+                <strong>
+                    This invoice has an outstanding balance.
+                </strong>
+
+                Releasing the vehicle requires an authorised
+                payment override and a recorded reason.
+            </section>
+        {% else %}
+            <section class="alert alert--error">
+                <strong>
+                    This invoice must be fully paid before
+                    reception can release the vehicle.
+                </strong>
+
+                A Manager or Administrator must authorise any
+                exceptional unpaid release.
+            </section>
+        {% endif %}
+    {% endif %}
+
+    <section class="card">
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">{{ error }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+        >
+            {% csrf_token %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{% url 'jobs:detail' job_card.pk %}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Release vehicle
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

@@ -199,3 +199,150 @@ class JobCardCancelForm(forms.Form):
             }
         ),
     )
+
+
+class VehicleReleaseForm(forms.Form):
+    """Collect final vehicle-handover information."""
+
+    final_mileage = forms.IntegerField(
+        min_value=0,
+        label="Final mileage",
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": 0,
+                "placeholder": "Final odometer reading",
+            }
+        ),
+    )
+    final_condition = forms.CharField(
+        label="Final vehicle condition",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 5,
+                "placeholder": ("Record the vehicle condition at handover"),
+            }
+        ),
+    )
+    received_by_name = forms.CharField(
+        max_length=200,
+        label="Received by",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": ("Name of the person receiving the vehicle"),
+            }
+        ),
+    )
+    received_by_contact = forms.CharField(
+        max_length=100,
+        required=False,
+        label="Receiver contact",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": "Optional phone number or contact",
+            }
+        ),
+    )
+    handover_notes = forms.CharField(
+        required=False,
+        label="Handover notes",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 4,
+                "placeholder": (
+                    "Record keys, documents, parts, or other items handed over"
+                ),
+            }
+        ),
+    )
+    payment_override = forms.BooleanField(
+        required=False,
+        label="Authorise release with outstanding balance",
+        widget=forms.CheckboxInput(
+            attrs={
+                "class": "form-check-input",
+            }
+        ),
+    )
+    payment_override_reason = forms.CharField(
+        required=False,
+        label="Payment override reason",
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 4,
+                "placeholder": (
+                    "Explain why the vehicle may be released before full payment"
+                ),
+            }
+        ),
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        minimum_mileage: int,
+        allow_payment_override: bool,
+        **kwargs: Any,
+    ) -> None:
+        """Configure mileage and override controls."""
+
+        super().__init__(*args, **kwargs)
+
+        self.minimum_mileage = minimum_mileage
+        self.allow_payment_override = allow_payment_override
+
+        mileage_field = self.fields["final_mileage"]
+        mileage_field.initial = minimum_mileage
+        mileage_field.widget.attrs["min"] = minimum_mileage
+        mileage_field.help_text = (
+            f"The final mileage must be at least {minimum_mileage}."
+        )
+
+        if not allow_payment_override:
+            self.fields.pop("payment_override")
+            self.fields.pop("payment_override_reason")
+
+    def clean(self) -> dict[str, Any]:
+        """Validate mileage and payment-override evidence."""
+
+        cleaned_data = super().clean()
+
+        final_mileage = cleaned_data.get("final_mileage")
+
+        if isinstance(final_mileage, int) and final_mileage < self.minimum_mileage:
+            self.add_error(
+                "final_mileage",
+                (f"Final mileage cannot be lower than {self.minimum_mileage}."),
+            )
+
+        if not self.allow_payment_override:
+            cleaned_data["payment_override"] = False
+            cleaned_data["payment_override_reason"] = ""
+
+            return cleaned_data
+
+        payment_override = bool(cleaned_data.get("payment_override"))
+        override_reason = str(
+            cleaned_data.get(
+                "payment_override_reason",
+                "",
+            )
+        ).strip()
+
+        cleaned_data["payment_override_reason"] = override_reason
+
+        if payment_override and not override_reason:
+            self.add_error(
+                "payment_override_reason",
+                ("Record why release with an outstanding balance is authorised."),
+            )
+
+        if not payment_override:
+            cleaned_data["payment_override_reason"] = ""
+
+        return cleaned_data

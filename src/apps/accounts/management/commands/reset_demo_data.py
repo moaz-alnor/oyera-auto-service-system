@@ -16,6 +16,17 @@ from django.db import transaction
 from apps.accounts.constants import RoleName
 from apps.accounts.models import User
 from apps.accounts.services.roles import ensure_default_roles
+from apps.billing.constants import PaymentMethod
+from apps.billing.services.invoices import (
+    CreateInvoiceCommand,
+    IssueInvoiceCommand,
+    create_invoice,
+    issue_invoice,
+)
+from apps.billing.services.payments import (
+    RecordPaymentCommand,
+    record_payment,
+)
 from apps.customers.constants import CustomerType
 from apps.customers.models import Customer
 from apps.customers.services.customers import (
@@ -87,6 +98,18 @@ from apps.workshop.models import (
 from apps.workshop.services.assignments import (
     AssignTechnicianCommand,
     assign_technician,
+)
+from apps.workshop.services.execution import (
+    CompleteWorkOrderCommand,
+    CompleteWorkTaskCommand,
+    StartWorkOrderCommand,
+    StartWorkTaskCommand,
+    SubmitWorkTaskForReviewCommand,
+    complete_work_order,
+    complete_work_task,
+    start_work_order,
+    start_work_task,
+    submit_work_task_for_review,
 )
 from apps.workshop.services.work_orders import (
     CreateWorkOrderCommand,
@@ -293,6 +316,70 @@ def _make_work_order_ready(
     work_order.refresh_from_db()
 
 
+def _complete_demo_work_order(
+    *,
+    actor: User,
+    technician: User,
+    work_order: WorkOrder,
+) -> None:
+    """Complete a work order through the execution services."""
+
+    _make_work_order_ready(
+        actor=actor,
+        technician=technician,
+        work_order=work_order,
+    )
+
+    task = work_order.tasks.get()
+
+    work_order_id = _require_pk(
+        work_order.pk,
+        label="Work order",
+    )
+    work_task_id = _require_pk(
+        task.pk,
+        label="Work task",
+    )
+
+    start_work_order(
+        actor=actor,
+        command=StartWorkOrderCommand(
+            work_order_id=work_order_id,
+        ),
+    )
+
+    start_work_task(
+        actor=technician,
+        command=StartWorkTaskCommand(
+            work_task_id=work_task_id,
+        ),
+    )
+
+    submit_work_task_for_review(
+        actor=technician,
+        command=SubmitWorkTaskForReviewCommand(
+            work_task_id=work_task_id,
+            completion_notes=("Demonstration workshop work completed."),
+        ),
+    )
+
+    complete_work_task(
+        actor=actor,
+        command=CompleteWorkTaskCommand(
+            work_task_id=work_task_id,
+        ),
+    )
+
+    complete_work_order(
+        actor=actor,
+        command=CompleteWorkOrderCommand(
+            work_order_id=work_order_id,
+        ),
+    )
+
+    work_order.refresh_from_db()
+
+
 class Command(BaseCommand):
     """Reset local records and create reusable test scenarios."""
 
@@ -357,7 +444,7 @@ class Command(BaseCommand):
                 email="manager@example.com",
             )
 
-            _create_employee(
+            cashier = _create_employee(
                 username="cashier",
                 password="CashierDemo123!",
                 first_name="Demo",
@@ -582,6 +669,110 @@ class Command(BaseCommand):
                 ),
             )
 
+            # Scenario 4:
+            # COMPLETED with a fully paid invoice.
+            # Use this to test normal Receptionist vehicle release.
+            paid_release_order = _create_approved_work_order(
+                actor=admin,
+                customer=customer,
+                service=service,
+                product=product,
+                registration_number="UAT 404D",
+                mileage=40400,
+                complaint=("Paid release scenario: completed oil service."),
+                product_quantity=Decimal("1.000"),
+            )
+
+            _complete_demo_work_order(
+                actor=admin,
+                technician=technician,
+                work_order=paid_release_order,
+            )
+
+            paid_release_invoice = create_invoice(
+                actor=cashier,
+                work_order_id=_require_pk(
+                    paid_release_order.pk,
+                    label="Paid release work order",
+                ),
+                command=CreateInvoiceCommand(
+                    notes=("Fully paid invoice for vehicle-release demonstration."),
+                ),
+            )
+
+            paid_release_invoice = issue_invoice(
+                actor=cashier,
+                invoice_id=_require_pk(
+                    paid_release_invoice.pk,
+                    label="Paid release invoice",
+                ),
+                command=IssueInvoiceCommand(
+                    due_date=date.today() + timedelta(days=14),
+                ),
+            )
+
+            record_payment(
+                actor=cashier,
+                invoice_id=_require_pk(
+                    paid_release_invoice.pk,
+                    label="Paid release invoice",
+                ),
+                command=RecordPaymentCommand(
+                    amount=paid_release_invoice.total,
+                    payment_method=PaymentMethod.CASH,
+                    external_reference="DEMO-PAID-RELEASE",
+                    notes=(
+                        "Full payment generated for normal vehicle-release testing."
+                    ),
+                ),
+            )
+
+            # Scenario 5:
+            # COMPLETED with an issued but unpaid invoice.
+            # Use this to test Manager payment override.
+            override_release_order = _create_approved_work_order(
+                actor=admin,
+                customer=customer,
+                service=service,
+                product=product,
+                registration_number="UAT 505E",
+                mileage=50500,
+                complaint=(
+                    "Override release scenario: customer credit approval required."
+                ),
+                product_quantity=Decimal("1.000"),
+            )
+
+            _complete_demo_work_order(
+                actor=admin,
+                technician=technician,
+                work_order=override_release_order,
+            )
+
+            override_release_invoice = create_invoice(
+                actor=cashier,
+                work_order_id=_require_pk(
+                    override_release_order.pk,
+                    label="Override release work order",
+                ),
+                command=CreateInvoiceCommand(
+                    notes=(
+                        "Unpaid invoice for Manager release override demonstration."
+                    ),
+                ),
+            )
+
+            override_release_invoice = issue_invoice(
+                actor=cashier,
+                invoice_id=_require_pk(
+                    override_release_invoice.pk,
+                    label="Override release invoice",
+                ),
+                command=IssueInvoiceCommand(
+                    due_date=date.today() + timedelta(days=14),
+                ),
+            )
+
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("Local demonstration database created."))
 
@@ -621,6 +812,54 @@ class Command(BaseCommand):
             "  Inventory detail:"
             f" /inventory/"
             f"{_require_pk(inventory_item.pk, label='Inventory item')}/"
+        )
+
+        self.stdout.write(
+            "  Paid vehicle release:"
+            f" /jobs/"
+            f"{
+                _require_pk(
+                    paid_release_order.job_card_id,
+                    label='Paid release job card',
+                )
+            }"
+            "/release/"
+        )
+
+        self.stdout.write(
+            "  Manager override release:"
+            f" /jobs/"
+            f"{
+                _require_pk(
+                    override_release_order.job_card_id,
+                    label='Override release job card',
+                )
+            }"
+            "/release/"
+        )
+
+        self.stdout.write(
+            "  Paid release invoice:"
+            f" /billing/"
+            f"{
+                _require_pk(
+                    paid_release_invoice.pk,
+                    label='Paid release invoice',
+                )
+            }"
+            "/"
+        )
+
+        self.stdout.write(
+            "  Unpaid release invoice:"
+            f" /billing/"
+            f"{
+                _require_pk(
+                    override_release_invoice.pk,
+                    label='Override release invoice',
+                )
+            }"
+            "/"
         )
 
         self.stdout.write("")

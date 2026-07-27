@@ -3,7 +3,12 @@
 from django.db.models import Q, QuerySet
 
 from apps.customers.models import Customer
-from apps.jobs.models import Inspection, JobCard, JobNote
+from apps.jobs.models import (
+    Inspection,
+    JobCard,
+    JobNote,
+    VehicleRelease,
+)
 from apps.vehicles.models import Vehicle
 
 
@@ -147,3 +152,40 @@ def get_active_vehicles_for_customer(
     """Return active vehicles owned by one active customer."""
 
     return get_active_vehicles().filter(current_owner_id=customer_id)
+
+
+def vehicle_release_list_queryset() -> QuerySet[VehicleRelease]:
+    """Return vehicle releases with handover relations."""
+
+    return (
+        VehicleRelease.objects.select_related(
+            "job_card",
+            "job_card__customer",
+            "job_card__vehicle",
+            "released_by",
+            "payment_override_by",
+        )
+        .all()
+        .order_by(
+            "-released_at",
+            "-pk",
+        )
+    )
+
+
+def get_vehicle_release_by_id(
+    *,
+    release_id: int,
+) -> VehicleRelease:
+    """Return one vehicle release by primary key."""
+
+    return vehicle_release_list_queryset().get(pk=release_id)
+
+
+def get_vehicle_release_for_job(
+    *,
+    job_card_id: int,
+) -> VehicleRelease:
+    """Return the handover record for one job card."""
+
+    return vehicle_release_list_queryset().get(job_card_id=job_card_id)

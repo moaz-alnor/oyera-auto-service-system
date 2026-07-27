@@ -34,6 +34,9 @@ def test_manager_receives_complete_job_permissions() -> None:
         "jobs.add_inspection",
         "jobs.view_jobnote",
         "jobs.add_jobnote",
+        "jobs.view_vehiclerelease",
+        "jobs.release_vehicle",
+        "jobs.override_vehicle_release_payment",
     }
 
 

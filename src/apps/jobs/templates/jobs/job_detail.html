@@ -30,7 +30,7 @@
                 Back to job cards
             </a>
 
-            {% if job_card.status != "CANCELLED" %}
+            {% if job_card.status != "CANCELLED" and job_card.status != "RELEASED" %}
                 {% if perms.jobs.add_inspection %}
                     <a
                         class="button button--primary"
@@ -46,6 +46,25 @@
                         href="{% url 'jobs:cancel' job_card.pk %}"
                     >
                         Cancel job
+                    </a>
+                {% endif %}
+            {% endif %}
+            {% if vehicle_release %}
+                {% if perms.jobs.view_vehiclerelease %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'jobs:release_detail' vehicle_release.pk %}"
+                    >
+                        View vehicle release
+                    </a>
+                {% endif %}
+            {% elif release_available %}
+                {% if perms.jobs.release_vehicle %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'jobs:release_create' job_card.pk %}"
+                    >
+                        Release vehicle
                     </a>
                 {% endif %}
             {% endif %}
@@ -70,6 +89,10 @@
                     {% if job_card.status == "CANCELLED" %}
                         <span class="status-badge status-badge--inactive">
                             Cancelled
+                        </span>
+                    {% elif job_card.status == "RELEASED" %}
+                        <span class="status-badge status-badge--active">
+                            Vehicle released
                         </span>
                     {% elif job_card.status == "INSPECTED" %}
                         <span class="status-badge">
@@ -209,7 +232,7 @@
                 </p>
             </div>
 
-            {% if perms.jobs.add_inspection and job_card.status != "CANCELLED" %}
+            {% if perms.jobs.add_inspection and job_card.status != "CANCELLED" and job_card.status != "RELEASED" %}
                 <a
                     class="button button--secondary"
                     href="{% url 'jobs:inspection_create' job_card.pk %}"

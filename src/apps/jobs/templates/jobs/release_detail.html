@@ -1,0 +1,150 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ vehicle_release.release_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Vehicle handover record
+            </p>
+
+            <h1>{{ vehicle_release.release_number }}</h1>
+
+            <p class="page-header__description">
+                {{ job_card.vehicle_registration_snapshot }}
+                was released from {{ job_card.job_number }}.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'jobs:detail' job_card.pk %}"
+            >
+                View job card
+            </a>
+        </div>
+    </header>
+
+    <section class="card">
+        <dl class="details-grid">
+            <div>
+                <dt>Release status</dt>
+                <dd>
+                    <span class="status-badge status-badge--active">
+                        Vehicle released
+                    </span>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Released at</dt>
+                <dd>
+                    {{ vehicle_release.released_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Released by</dt>
+                <dd>{{ vehicle_release.released_by }}</dd>
+            </div>
+
+            <div>
+                <dt>Received by</dt>
+                <dd>{{ vehicle_release.received_by_name }}</dd>
+            </div>
+
+            <div>
+                <dt>Receiver contact</dt>
+                <dd>
+                    {{ vehicle_release.received_by_contact|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Final mileage</dt>
+                <dd>{{ vehicle_release.final_mileage }}</dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card details-section">
+        <h2>Final vehicle condition</h2>
+
+        <p>
+            {{ vehicle_release.final_condition|linebreaksbr }}
+        </p>
+
+        {% if vehicle_release.handover_notes %}
+            <h2>Handover notes</h2>
+
+            <p>
+                {{ vehicle_release.handover_notes|linebreaksbr }}
+            </p>
+        {% endif %}
+    </section>
+
+    <section class="card details-section">
+        <h2>Billing snapshot at release</h2>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Invoice</dt>
+                <dd>
+                    {{ vehicle_release.invoice_number_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Invoice status</dt>
+                <dd>
+                    {{ vehicle_release.invoice_status_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Invoice total</dt>
+                <dd>
+                    {{ vehicle_release.invoice_currency_snapshot }}
+                    {{ vehicle_release.invoice_total_snapshot|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Paid amount</dt>
+                <dd>
+                    {{ vehicle_release.invoice_currency_snapshot }}
+                    {{ vehicle_release.paid_amount_snapshot|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Outstanding amount</dt>
+                <dd>
+                    {{ vehicle_release.invoice_currency_snapshot }}
+                    {{ vehicle_release.outstanding_amount_snapshot|floatformat:2 }}
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    {% if vehicle_release.payment_override %}
+        <section class="alert alert--error">
+            <h2>Payment override</h2>
+
+            <p>
+                {{ vehicle_release.payment_override_reason|linebreaksbr }}
+            </p>
+
+            <p>
+                Authorised by
+                {{ vehicle_release.payment_override_by }}
+                on
+                {{ vehicle_release.payment_override_at|date:"d M Y, H:i" }}.
+            </p>
+        </section>
+    {% endif %}
+{% endblock %}

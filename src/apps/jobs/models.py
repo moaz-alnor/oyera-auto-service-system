@@ -1,7 +1,13 @@
 """Database models for vehicle-service job cards."""
 
+from decimal import Decimal
+from typing import TYPE_CHECKING
+
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import (
+    ObjectDoesNotExist,
+    ValidationError,
+)
 from django.db import models
 from django.db.models import Q
 from django.utils import timezone
@@ -21,6 +27,10 @@ from apps.vehicles.models import Vehicle
 
 class JobCard(TimeStampedModel):
     """Represent one vehicle visit to the service business."""
+
+    if TYPE_CHECKING:
+        customer_id: int
+        vehicle_id: int
 
     job_number = models.CharField(
         max_length=30,
@@ -181,6 +191,244 @@ class JobCard(TimeStampedModel):
         """Return the job number and visit vehicle."""
 
         return f"{self.job_number} — {self.vehicle_registration_snapshot}"
+
+
+class VehicleRelease(TimeStampedModel):
+    """Preserve the final vehicle handover record."""
+
+    if TYPE_CHECKING:
+        job_card_id: int
+        payment_override_by_id: int | None
+        released_by_id: int
+
+    release_number = models.CharField(
+        max_length=30,
+        unique=True,
+        editable=False,
+    )
+    job_card = models.OneToOneField(
+        JobCard,
+        on_delete=models.PROTECT,
+        related_name="vehicle_release",
+    )
+
+    released_at = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+    )
+    final_mileage = models.PositiveBigIntegerField()
+    final_condition = models.TextField()
+    received_by_name = models.CharField(
+        max_length=200,
+    )
+    received_by_contact = models.CharField(
+        max_length=100,
+        blank=True,
+    )
+    handover_notes = models.TextField(
+        blank=True,
+    )
+
+    # Frozen billing snapshots at the moment of release.
+    invoice_number_snapshot = models.CharField(
+        max_length=30,
+        editable=False,
+    )
+    invoice_status_snapshot = models.CharField(
+        max_length=30,
+        editable=False,
+    )
+    invoice_currency_snapshot = models.CharField(
+        max_length=3,
+        editable=False,
+    )
+    invoice_total_snapshot = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        editable=False,
+    )
+    paid_amount_snapshot = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        editable=False,
+    )
+    outstanding_amount_snapshot = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        editable=False,
+    )
+
+    payment_override = models.BooleanField(
+        default=False,
+        editable=False,
+    )
+    payment_override_reason = models.TextField(
+        blank=True,
+        editable=False,
+    )
+    payment_override_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="vehicle_release_payment_overrides",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    payment_override_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    released_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="vehicle_releases_recorded",
+        editable=False,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure release ordering, permissions, and constraints."""
+
+        ordering = (
+            "-released_at",
+            "-pk",
+        )
+        permissions = (
+            (
+                "release_vehicle",
+                "Can release a completed vehicle",
+            ),
+            (
+                "override_vehicle_release_payment",
+                "Can release a vehicle with an unpaid balance",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=("released_at", "job_card"),
+                name="jobs_release_date_idx",
+            ),
+        )
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(invoice_total_snapshot__gte=0),
+                name="jobs_release_total_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(paid_amount_snapshot__gte=0),
+                name="jobs_release_paid_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(outstanding_amount_snapshot__gte=0),
+                name="jobs_release_balance_nonnegative",
+            ),
+            models.CheckConstraint(
+                condition=Q(
+                    invoice_total_snapshot=(
+                        models.F("paid_amount_snapshot")
+                        + models.F("outstanding_amount_snapshot")
+                    )
+                ),
+                name="jobs_release_balance_consistent",
+            ),
+        )
+
+    def clean(self) -> None:
+        """Validate handover, mileage, and override consistency."""
+
+        super().clean()
+
+        self.release_number = self.release_number.strip().upper()
+        self.final_condition = self.final_condition.strip()
+        self.received_by_name = self.received_by_name.strip()
+        self.received_by_contact = self.received_by_contact.strip()
+        self.handover_notes = self.handover_notes.strip()
+        self.invoice_number_snapshot = self.invoice_number_snapshot.strip().upper()
+        self.invoice_status_snapshot = self.invoice_status_snapshot.strip().upper()
+        self.invoice_currency_snapshot = self.invoice_currency_snapshot.strip().upper()
+        self.payment_override_reason = self.payment_override_reason.strip()
+
+        errors: dict[str, str] = {}
+
+        if not self.final_condition:
+            errors["final_condition"] = "Record the vehicle condition at handover."
+
+        if not self.received_by_name:
+            errors["received_by_name"] = "Record the person receiving the vehicle."
+
+        try:
+            job_card = self.job_card
+        except ObjectDoesNotExist:
+            job_card = None
+
+        if job_card is not None:
+            if job_card.status != JobStatus.RELEASED:
+                errors["job_card"] = "A vehicle release requires a released job card."
+
+            if self.final_mileage < job_card.arrival_mileage:
+                errors["final_mileage"] = (
+                    "Final mileage cannot be lower than the arrival mileage."
+                )
+
+            current_mileage = job_card.vehicle.current_mileage
+
+            if current_mileage is not None and self.final_mileage < current_mileage:
+                errors["final_mileage"] = (
+                    "Final mileage cannot be lower than the vehicle's current mileage."
+                )
+
+        expected_total = self.paid_amount_snapshot + self.outstanding_amount_snapshot
+
+        if self.invoice_total_snapshot != expected_total:
+            errors["outstanding_amount_snapshot"] = (
+                "Paid and outstanding amounts must equal the invoice total."
+            )
+
+        if (
+            self.outstanding_amount_snapshot > Decimal("0.00")
+            and not self.payment_override
+        ):
+            errors["payment_override"] = (
+                "An unpaid balance requires an authorised payment override."
+            )
+
+        if (
+            self.outstanding_amount_snapshot == Decimal("0.00")
+            and self.payment_override
+        ):
+            errors["payment_override"] = (
+                "A fully paid invoice does not require a payment override."
+            )
+
+        if self.payment_override:
+            if not self.payment_override_reason:
+                errors["payment_override_reason"] = "Record why payment was overridden."
+
+            if self.payment_override_by_id is None:
+                errors["payment_override_by"] = "Record who authorised the override."
+
+            if self.payment_override_at is None:
+                errors["payment_override_at"] = (
+                    "Record when the override was authorised."
+                )
+        elif (
+            self.payment_override_reason
+            or self.payment_override_by_id is not None
+            or self.payment_override_at is not None
+        ):
+            errors["payment_override"] = (
+                "Override audit information is only valid "
+                "when payment override is enabled."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        """Return the release and job numbers."""
+
+        return f"{self.release_number} — {self.job_card.job_number}"
 
 
 class Inspection(TimeStampedModel):
