@@ -10,6 +10,7 @@ class JobStatus(models.TextChoices):
 
     OPEN = "OPEN", "Open"
     INSPECTED = "INSPECTED", "Inspected"
+    RELEASED = "RELEASED", "Vehicle released"
     CANCELLED = "CANCELLED", "Cancelled"
 
 
@@ -74,3 +75,7 @@ class JobPermissionName(StrEnum):
 
     VIEW_JOB_NOTE = "jobs.view_jobnote"
     ADD_JOB_NOTE = "jobs.add_jobnote"
+
+    VIEW_VEHICLE_RELEASE = "jobs.view_vehiclerelease"
+    RELEASE_VEHICLE = "jobs.release_vehicle"
+    OVERRIDE_VEHICLE_RELEASE_PAYMENT = "jobs.override_vehicle_release_payment"
