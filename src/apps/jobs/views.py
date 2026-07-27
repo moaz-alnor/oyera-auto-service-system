@@ -11,6 +11,9 @@ from django.shortcuts import redirect, render
 
 from apps.accounts.decorators import employee_permission_required
 from apps.accounts.models import User
+from apps.billing.calculations import InvoiceBalance
+from apps.billing.models import Invoice
+from apps.billing.selectors import get_invoice_balance
 from apps.customers.models import Customer
 from apps.jobs.constants import (
     FuelLevel,
@@ -25,12 +28,18 @@ from apps.jobs.forms import (
     JobCardCancelForm,
     JobCardOpenForm,
     JobNoteCreateForm,
+    VehicleReleaseForm,
 )
-from apps.jobs.models import JobCard
+from apps.jobs.models import (
+    JobCard,
+    VehicleRelease,
+)
 from apps.jobs.selectors import (
     get_job_card_by_id,
     get_job_inspections,
     get_job_notes,
+    get_vehicle_release_by_id,
+    get_vehicle_release_for_job,
     search_job_cards,
 )
 from apps.jobs.services.inspections import (
@@ -45,11 +54,17 @@ from apps.jobs.services.intake import (
     cancel_job_card,
     open_job_card,
 )
+from apps.jobs.services.releases import (
+    ReleaseVehicleCommand,
+    release_vehicle,
+)
 from apps.quotations.selectors import (
     get_current_quotation_for_job,
     get_quotation_history_for_job,
 )
 from apps.vehicles.models import Vehicle
+from apps.workshop.constants import WorkOrderStatus
+from apps.workshop.models import WorkOrder
 
 
 def _get_job_card_or_404(
@@ -62,6 +77,79 @@ def _get_job_card_or_404(
         return get_job_card_by_id(job_card_id=job_card_id)
     except JobCard.DoesNotExist as exc:
         raise Http404("Job card not found.") from exc
+
+
+def _get_vehicle_release_or_404(
+    *,
+    release_id: int,
+) -> VehicleRelease:
+    """Return a vehicle release or raise HTTP 404."""
+
+    try:
+        return get_vehicle_release_by_id(release_id=release_id)
+    except VehicleRelease.DoesNotExist as exc:
+        raise Http404("Vehicle-release record not found.") from exc
+
+
+def _get_release_for_job(
+    *,
+    job_card_id: int,
+) -> VehicleRelease | None:
+    """Return the job's release record when present."""
+
+    try:
+        return get_vehicle_release_for_job(job_card_id=job_card_id)
+    except VehicleRelease.DoesNotExist:
+        return None
+
+
+def _get_release_workflow(
+    *,
+    job_card_id: int,
+) -> tuple[
+    WorkOrder,
+    Invoice,
+    InvoiceBalance,
+]:
+    """Return workshop and billing release records."""
+
+    try:
+        work_order = WorkOrder.objects.select_related(
+            "job_card",
+        ).get(job_card_id=job_card_id)
+    except WorkOrder.DoesNotExist as exc:
+        raise Http404("This job has no workshop work order.") from exc
+
+    try:
+        invoice = Invoice.objects.get(work_order_id=work_order.pk)
+    except Invoice.DoesNotExist as exc:
+        raise Http404("This job has no customer invoice.") from exc
+
+    balance = get_invoice_balance(invoice_id=invoice.pk)
+
+    return (
+        work_order,
+        invoice,
+        balance,
+    )
+
+
+def _minimum_release_mileage(
+    *,
+    job_card: JobCard,
+) -> int:
+    """Return the lowest allowed handover mileage."""
+
+    minimum_mileage = job_card.arrival_mileage
+    current_mileage = job_card.vehicle.current_mileage
+
+    if current_mileage is not None:
+        minimum_mileage = max(
+            minimum_mileage,
+            current_mileage,
+        )
+
+    return minimum_mileage
 
 
 def _add_validation_error(
@@ -209,7 +297,23 @@ def job_detail(
     """Display a job card and its append-only history."""
 
     job_card = _get_job_card_or_404(job_card_id=job_card_id)
+    vehicle_release = _get_release_for_job(job_card_id=job_card_id)
 
+    release_available = False
+
+    if vehicle_release is None and job_card.status in {
+        JobStatus.OPEN,
+        JobStatus.INSPECTED,
+    }:
+        try:
+            work_order, invoice, _ = _get_release_workflow(job_card_id=job_card_id)
+        except Http404:
+            pass
+        else:
+            release_available = (
+                work_order.status == WorkOrderStatus.COMPLETED
+                and invoice.issued_at is not None
+            )
     return render(
         request,
         "jobs/job_detail.html",
@@ -217,6 +321,8 @@ def job_detail(
             "job_card": job_card,
             "inspections": get_job_inspections(job_card_id=job_card_id),
             "notes": get_job_notes(job_card_id=job_card_id),
+            "vehicle_release": vehicle_release,
+            "release_available": release_available,
             "current_quotation": (
                 get_current_quotation_for_job(job_card_id=job_card_id)
             ),
@@ -374,5 +480,122 @@ def job_cancel(
         {
             "job_card": job_card,
             "form": form,
+        },
+    )
+
+
+@employee_permission_required(JobPermissionName.RELEASE_VEHICLE.value)
+def vehicle_release_create(
+    request: HttpRequest,
+    job_card_id: int,
+) -> HttpResponse:
+    """Release a completed vehicle to its receiver."""
+
+    job_card = _get_job_card_or_404(job_card_id=job_card_id)
+
+    existing_release = _get_release_for_job(job_card_id=job_card_id)
+
+    if existing_release is not None:
+        return redirect(
+            "jobs:release_detail",
+            release_id=existing_release.pk,
+        )
+
+    work_order, invoice, balance = _get_release_workflow(job_card_id=job_card_id)
+
+    actor = cast(User, request.user)
+    allow_payment_override = actor.has_perm(
+        JobPermissionName.OVERRIDE_VEHICLE_RELEASE_PAYMENT.value
+    )
+    minimum_mileage = _minimum_release_mileage(job_card=job_card)
+
+    if request.method == "POST":
+        form = VehicleReleaseForm(
+            request.POST,
+            minimum_mileage=minimum_mileage,
+            allow_payment_override=(allow_payment_override),
+        )
+
+        if form.is_valid():
+            try:
+                vehicle_release = release_vehicle(
+                    actor=actor,
+                    command=ReleaseVehicleCommand(
+                        job_card_id=job_card_id,
+                        final_mileage=(form.cleaned_data["final_mileage"]),
+                        final_condition=(form.cleaned_data["final_condition"]),
+                        received_by_name=(form.cleaned_data["received_by_name"]),
+                        received_by_contact=(form.cleaned_data["received_by_contact"]),
+                        handover_notes=(form.cleaned_data["handover_notes"]),
+                        payment_override=bool(
+                            form.cleaned_data.get(
+                                "payment_override",
+                                False,
+                            )
+                        ),
+                        payment_override_reason=str(
+                            form.cleaned_data.get(
+                                "payment_override_reason",
+                                "",
+                            )
+                        ),
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        f"Vehicle release "
+                        f"{vehicle_release.release_number} "
+                        "was recorded successfully."
+                    ),
+                )
+
+                return redirect(
+                    "jobs:release_detail",
+                    release_id=vehicle_release.pk,
+                )
+    else:
+        form = VehicleReleaseForm(
+            minimum_mileage=minimum_mileage,
+            allow_payment_override=(allow_payment_override),
+        )
+
+    return render(
+        request,
+        "jobs/release_form.html",
+        {
+            "job_card": job_card,
+            "work_order": work_order,
+            "invoice": invoice,
+            "balance": balance,
+            "has_outstanding_balance": (not balance.is_paid),
+            "minimum_mileage": minimum_mileage,
+            "allow_payment_override": (allow_payment_override),
+            "form": form,
+        },
+    )
+
+
+@employee_permission_required(JobPermissionName.VIEW_VEHICLE_RELEASE.value)
+def vehicle_release_detail(
+    request: HttpRequest,
+    release_id: int,
+) -> HttpResponse:
+    """Display the permanent vehicle handover record."""
+
+    vehicle_release = _get_vehicle_release_or_404(release_id=release_id)
+
+    return render(
+        request,
+        "jobs/release_detail.html",
+        {
+            "vehicle_release": vehicle_release,
+            "job_card": vehicle_release.job_card,
         },
     )

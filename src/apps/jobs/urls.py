@@ -33,6 +33,16 @@ urlpatterns = [
         name="cancel",
     ),
     path(
+        "<int:job_card_id>/release/",
+        views.vehicle_release_create,
+        name="release_create",
+    ),
+    path(
+        "releases/<int:release_id>/",
+        views.vehicle_release_detail,
+        name="release_detail",
+    ),
+    path(
         "<int:job_card_id>/",
         views.job_detail,
         name="detail",
