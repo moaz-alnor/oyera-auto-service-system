@@ -1,18 +1,34 @@
 """Read-only queries for supplier purchasing."""
 
+from decimal import Decimal
+
 from django.db.models import (
+    DecimalField,
+    ExpressionWrapper,
+    F,
     Prefetch,
     Q,
     QuerySet,
+    Sum,
+    Value,
 )
+from django.db.models.functions import Coalesce
+from django.utils import timezone
 
 from apps.inventory.models import StockMovement
+from apps.purchasing.constants import (
+    SupplierInvoiceStatus,
+    SupplierPaymentStatus,
+)
 from apps.purchasing.models import (
     GoodsReceipt,
     GoodsReceiptLine,
     PurchaseOrder,
     PurchaseOrderLine,
     Supplier,
+    SupplierInvoice,
+    SupplierInvoiceLine,
+    SupplierPayment,
 )
 from apps.purchasing.normalization import (
     normalize_supplier_code,
@@ -325,3 +341,232 @@ def get_goods_receipt_movements(
             "pk",
         )
     )
+
+
+def supplier_invoice_list_queryset() -> QuerySet[SupplierInvoice]:
+    """Return supplier invoices with financial details loaded."""
+
+    invoice_lines = (
+        SupplierInvoiceLine.objects.select_related(
+            "purchase_order_line",
+            "purchase_order_line__product",
+            "goods_receipt_line",
+            "goods_receipt_line__goods_receipt",
+            "goods_receipt_line__inventory_item",
+            "goods_receipt_line__inventory_item__location",
+            "created_by",
+        )
+        .all()
+        .order_by(
+            "purchase_order_line__position",
+            "pk",
+        )
+    )
+
+    payments = (
+        SupplierPayment.objects.select_related(
+            "recorded_by",
+            "voided_by",
+        )
+        .all()
+        .order_by(
+            "-paid_at",
+            "-pk",
+        )
+    )
+
+    posted_payment_total = Coalesce(
+        Sum(
+            "payments__amount",
+            filter=Q(payments__status=(SupplierPaymentStatus.POSTED)),
+        ),
+        Value(Decimal("0.00")),
+        output_field=DecimalField(
+            max_digits=14,
+            decimal_places=2,
+        ),
+    )
+
+    return (
+        SupplierInvoice.objects.select_related(
+            "supplier",
+            "purchase_order",
+            "created_by",
+            "updated_by",
+            "posted_by",
+            "voided_by",
+        )
+        .annotate(
+            paid_amount=posted_payment_total,
+        )
+        .annotate(
+            outstanding_amount=ExpressionWrapper(
+                F("total") - F("paid_amount"),
+                output_field=DecimalField(
+                    max_digits=14,
+                    decimal_places=2,
+                ),
+            )
+        )
+        .prefetch_related(
+            Prefetch(
+                "lines",
+                queryset=invoice_lines,
+            ),
+            Prefetch(
+                "payments",
+                queryset=payments,
+            ),
+        )
+        .order_by(
+            "-invoice_date",
+            "-pk",
+        )
+    )
+
+
+def search_supplier_invoices(
+    *,
+    query: str = "",
+    status: str = "",
+    supplier_id: int | None = None,
+    purchase_order_id: int | None = None,
+    overdue_only: bool = False,
+) -> QuerySet[SupplierInvoice]:
+    """Return supplier invoices matching supplied filters."""
+
+    invoices = supplier_invoice_list_queryset()
+
+    if status:
+        invoices = invoices.filter(status=status)
+
+    if supplier_id is not None:
+        invoices = invoices.filter(supplier_id=supplier_id)
+
+    if purchase_order_id is not None:
+        invoices = invoices.filter(purchase_order_id=purchase_order_id)
+
+    if overdue_only:
+        invoices = invoices.filter(
+            due_date__lt=timezone.localdate(),
+            status__in=(
+                SupplierInvoiceStatus.POSTED,
+                SupplierInvoiceStatus.PARTIALLY_PAID,
+            ),
+        )
+
+    search_value = query.strip()
+
+    if not search_value:
+        return invoices
+
+    return invoices.filter(
+        Q(supplier_invoice_number__icontains=(search_value))
+        | Q(supplier_reference__icontains=(search_value))
+        | Q(purchase_order_number_snapshot__icontains=(search_value))
+        | Q(supplier_number_snapshot__icontains=(search_value))
+        | Q(supplier_name_snapshot__icontains=(search_value))
+        | Q(lines__product_sku_snapshot__icontains=(search_value))
+        | Q(lines__product_name_snapshot__icontains=(search_value))
+        | Q(
+            **{
+                (
+                    "lines__goods_receipt_line__"
+                    "goods_receipt__"
+                    "goods_receipt_number__icontains"
+                ): search_value
+            }
+        )
+        | Q(payments__payment_number__icontains=(search_value))
+        | Q(payments__external_reference__icontains=(search_value))
+    ).distinct()
+
+
+def get_supplier_invoice_by_id(
+    *,
+    supplier_invoice_id: int,
+) -> SupplierInvoice:
+    """Return one invoice with lines and payments."""
+
+    return supplier_invoice_list_queryset().get(pk=supplier_invoice_id)
+
+
+def get_supplier_invoices_for_supplier(
+    *,
+    supplier_id: int,
+) -> QuerySet[SupplierInvoice]:
+    """Return all invoices belonging to one supplier."""
+
+    return supplier_invoice_list_queryset().filter(supplier_id=supplier_id)
+
+
+def get_supplier_invoices_for_purchase_order(
+    *,
+    purchase_order_id: int,
+) -> QuerySet[SupplierInvoice]:
+    """Return all invoices for one purchase order."""
+
+    return supplier_invoice_list_queryset().filter(purchase_order_id=purchase_order_id)
+
+
+def supplier_payment_list_queryset() -> QuerySet[SupplierPayment]:
+    """Return supplier payments with relationships loaded."""
+
+    return SupplierPayment.objects.select_related(
+        "supplier_invoice",
+        "supplier_invoice__supplier",
+        "supplier_invoice__purchase_order",
+        "recorded_by",
+        "voided_by",
+    ).order_by(
+        "-paid_at",
+        "-pk",
+    )
+
+
+def search_supplier_payments(
+    *,
+    query: str = "",
+    status: str = "",
+    method: str = "",
+    supplier_invoice_id: int | None = None,
+    supplier_id: int | None = None,
+) -> QuerySet[SupplierPayment]:
+    """Return supplier payments matching supplied filters."""
+
+    payments = supplier_payment_list_queryset()
+
+    if status:
+        payments = payments.filter(status=status)
+
+    if method:
+        payments = payments.filter(method=method)
+
+    if supplier_invoice_id is not None:
+        payments = payments.filter(supplier_invoice_id=supplier_invoice_id)
+
+    if supplier_id is not None:
+        payments = payments.filter(supplier_invoice__supplier_id=supplier_id)
+
+    search_value = query.strip()
+
+    if not search_value:
+        return payments
+
+    return payments.filter(
+        Q(payment_number__icontains=search_value)
+        | Q(external_reference__icontains=(search_value))
+        | Q(**{("supplier_invoice__supplier_invoice_number__icontains"): search_value})
+        | Q(**{("supplier_invoice__supplier_reference__icontains"): search_value})
+        | Q(**{("supplier_invoice__supplier_number_snapshot__icontains"): search_value})
+        | Q(**{("supplier_invoice__supplier_name_snapshot__icontains"): search_value})
+    ).distinct()
+
+
+def get_supplier_payment_by_id(
+    *,
+    supplier_payment_id: int,
+) -> SupplierPayment:
+    """Return one supplier payment by primary key."""
+
+    return supplier_payment_list_queryset().get(pk=supplier_payment_id)
