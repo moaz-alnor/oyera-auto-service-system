@@ -9,6 +9,9 @@ from apps.purchasing.models import (
     PurchaseOrder,
     PurchaseOrderLine,
     Supplier,
+    SupplierInvoice,
+    SupplierInvoiceLine,
+    SupplierPayment,
 )
 
 
@@ -229,4 +232,135 @@ class GoodsReceiptLineAdmin(
         "inventory_item__location",
         "stock_movement",
         "created_by",
+    )
+
+
+@admin.register(SupplierInvoice)
+class SupplierInvoiceAdmin(
+    ReadOnlyAdminMixin,
+    admin.ModelAdmin,
+):
+    """Allow administrators to inspect supplier invoices."""
+
+    list_display = (
+        "supplier_invoice_number",
+        "supplier_reference",
+        "supplier_name_snapshot",
+        "purchase_order_number_snapshot",
+        "status",
+        "currency",
+        "total",
+        "invoice_date",
+        "due_date",
+    )
+    list_filter = (
+        "status",
+        "currency",
+        "invoice_date",
+        "due_date",
+    )
+    search_fields = (
+        "supplier_invoice_number",
+        "supplier_reference",
+        "supplier_name_snapshot",
+        "supplier_number_snapshot",
+        "purchase_order_number_snapshot",
+        "lines__product_sku_snapshot",
+        "lines__product_name_snapshot",
+    )
+    ordering = (
+        "-invoice_date",
+        "-pk",
+    )
+    list_select_related = (
+        "supplier",
+        "purchase_order",
+        "created_by",
+        "updated_by",
+        "posted_by",
+        "voided_by",
+    )
+
+
+@admin.register(SupplierInvoiceLine)
+class SupplierInvoiceLineAdmin(
+    ReadOnlyAdminMixin,
+    admin.ModelAdmin,
+):
+    """Allow administrators to inspect invoice matching."""
+
+    list_display = (
+        "supplier_invoice",
+        "product_sku_snapshot",
+        "product_name_snapshot",
+        "quantity_invoiced",
+        "unit_cost",
+        "line_total",
+        "goods_receipt_line",
+        "created_at",
+    )
+    list_filter = (
+        "supplier_invoice__status",
+        "created_at",
+    )
+    search_fields = (
+        "supplier_invoice__supplier_invoice_number",
+        "supplier_invoice__supplier_reference",
+        "product_sku_snapshot",
+        "product_name_snapshot",
+        "goods_receipt_line__goods_receipt__goods_receipt_number",
+    )
+    ordering = (
+        "supplier_invoice",
+        "purchase_order_line__position",
+        "pk",
+    )
+    list_select_related = (
+        "supplier_invoice",
+        "purchase_order_line",
+        "goods_receipt_line",
+        "goods_receipt_line__goods_receipt",
+        "created_by",
+    )
+
+
+@admin.register(SupplierPayment)
+class SupplierPaymentAdmin(
+    ReadOnlyAdminMixin,
+    admin.ModelAdmin,
+):
+    """Allow administrators to inspect supplier payments."""
+
+    list_display = (
+        "payment_number",
+        "supplier_invoice",
+        "amount",
+        "currency",
+        "method",
+        "status",
+        "paid_at",
+        "recorded_by",
+    )
+    list_filter = (
+        "status",
+        "method",
+        "currency",
+        "paid_at",
+    )
+    search_fields = (
+        "payment_number",
+        "supplier_invoice__supplier_invoice_number",
+        "supplier_invoice__supplier_reference",
+        "supplier_invoice__supplier_name_snapshot",
+        "external_reference",
+    )
+    ordering = (
+        "-paid_at",
+        "-pk",
+    )
+    list_select_related = (
+        "supplier_invoice",
+        "supplier_invoice__supplier",
+        "recorded_by",
+        "voided_by",
     )

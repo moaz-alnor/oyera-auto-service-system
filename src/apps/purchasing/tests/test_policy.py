@@ -33,6 +33,17 @@ _GOODS_RECEIPT_PERMISSIONS = {
     PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value,
 }
 
+_SUPPLIER_FINANCIAL_PERMISSIONS = {
+    PurchasingPermissionName.VIEW_SUPPLIER_INVOICE.value,
+    PurchasingPermissionName.ADD_SUPPLIER_INVOICE.value,
+    PurchasingPermissionName.CHANGE_SUPPLIER_INVOICE.value,
+    PurchasingPermissionName.POST_SUPPLIER_INVOICE.value,
+    PurchasingPermissionName.VOID_SUPPLIER_INVOICE.value,
+    PurchasingPermissionName.VIEW_SUPPLIER_PAYMENT.value,
+    PurchasingPermissionName.RECORD_SUPPLIER_PAYMENT.value,
+    PurchasingPermissionName.VOID_SUPPLIER_PAYMENT.value,
+}
+
 
 def _goods_receipt_permissions(
     *,
@@ -95,6 +106,27 @@ def _supplier_permissions(
     }
 
     return permissions & _SUPPLIER_PERMISSIONS
+
+
+def _supplier_financial_permissions(
+    *,
+    role: RoleName,
+) -> set[str]:
+    """Return supplier invoice and payment permissions."""
+
+    group = Group.objects.get(name=role.value)
+
+    permissions = {
+        f"{app_label}.{codename}"
+        for app_label, codename in (
+            group.permissions.filter(content_type__app_label="purchasing").values_list(
+                "content_type__app_label",
+                "codename",
+            )
+        )
+    }
+
+    return permissions & _SUPPLIER_FINANCIAL_PERMISSIONS
 
 
 @pytest.mark.django_db
@@ -211,3 +243,46 @@ def test_technician_has_no_goods_receipt_permissions() -> None:
     ensure_default_roles()
 
     assert _goods_receipt_permissions(role=RoleName.TECHNICIAN) == set()
+
+
+@pytest.mark.django_db
+def test_management_controls_supplier_finances() -> None:
+    """Allow management to control supplier invoices."""
+
+    ensure_default_roles()
+
+    for role in (
+        RoleName.ADMINISTRATOR,
+        RoleName.MANAGER,
+    ):
+        assert (
+            _supplier_financial_permissions(role=role)
+            == _SUPPLIER_FINANCIAL_PERMISSIONS
+        )
+
+
+@pytest.mark.django_db
+def test_cashier_records_supplier_payments() -> None:
+    """Allow Cashier payment entry without void authority."""
+
+    ensure_default_roles()
+
+    assert _supplier_financial_permissions(role=RoleName.CASHIER) == {
+        PurchasingPermissionName.VIEW_SUPPLIER_INVOICE.value,
+        PurchasingPermissionName.VIEW_SUPPLIER_PAYMENT.value,
+        PurchasingPermissionName.RECORD_SUPPLIER_PAYMENT.value,
+    }
+
+
+@pytest.mark.django_db
+def test_other_operational_roles_have_no_supplier_finances() -> None:
+    """Keep accounts payable outside operational roles."""
+
+    ensure_default_roles()
+
+    for role in (
+        RoleName.RECEPTIONIST,
+        RoleName.SENIOR_TECHNICIAN,
+        RoleName.TECHNICIAN,
+    ):
+        assert _supplier_financial_permissions(role=role) == set()

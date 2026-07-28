@@ -126,6 +126,14 @@ ROLE_PERMISSION_POLICY: dict[
             PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value,
             PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
             PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value,
+            PurchasingPermissionName.VIEW_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.ADD_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.CHANGE_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.POST_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.VOID_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.VIEW_SUPPLIER_PAYMENT.value,
+            PurchasingPermissionName.RECORD_SUPPLIER_PAYMENT.value,
+            PurchasingPermissionName.VOID_SUPPLIER_PAYMENT.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -264,6 +272,9 @@ ROLE_PERMISSION_POLICY: dict[
             PurchasingPermissionName.VIEW_SUPPLIER.value,
             PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
             PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
+            PurchasingPermissionName.VIEW_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.VIEW_SUPPLIER_PAYMENT.value,
+            PurchasingPermissionName.RECORD_SUPPLIER_PAYMENT.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -356,6 +367,14 @@ ROLE_PERMISSION_POLICY: dict[
             PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value,
             PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
             PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value,
+            PurchasingPermissionName.VIEW_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.ADD_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.CHANGE_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.POST_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.VOID_SUPPLIER_INVOICE.value,
+            PurchasingPermissionName.VIEW_SUPPLIER_PAYMENT.value,
+            PurchasingPermissionName.RECORD_SUPPLIER_PAYMENT.value,
+            PurchasingPermissionName.VOID_SUPPLIER_PAYMENT.value,
         }
     ),
 }

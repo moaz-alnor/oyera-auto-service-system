@@ -20,6 +20,33 @@ class PurchaseOrderTotals:
     total: Decimal
 
 
+@dataclass(frozen=True, slots=True)
+class SupplierInvoiceTotals:
+    """Contain calculated supplier-invoice totals."""
+
+    line_subtotal: Decimal
+    tax_amount: Decimal
+    other_charges: Decimal
+    total: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class SupplierInvoiceBalance:
+    """Contain the current supplier-invoice balance."""
+
+    supplier_invoice_id: int
+    currency: str
+    total: Decimal
+    paid_amount: Decimal
+    outstanding_amount: Decimal
+
+    @property
+    def is_paid(self) -> bool:
+        """Return whether the invoice has no balance."""
+
+        return self.outstanding_amount == Decimal("0.00")
+
+
 def round_money(value: Decimal) -> Decimal:
     """Round one monetary value to two decimal places."""
 
@@ -69,4 +96,70 @@ def calculate_purchase_order_totals(
         tax_amount=tax_amount,
         delivery_cost=normalised_delivery_cost,
         total=total,
+    )
+
+
+def calculate_supplier_invoice_totals(
+    *,
+    line_totals: Iterable[Decimal],
+    tax_amount: Decimal,
+    other_charges: Decimal,
+) -> SupplierInvoiceTotals:
+    """Calculate supplier-invoice financial totals."""
+
+    line_subtotal = round_money(
+        sum(
+            line_totals,
+            Decimal("0.00"),
+        )
+    )
+    normalised_tax_amount = round_money(tax_amount)
+    normalised_other_charges = round_money(other_charges)
+
+    if normalised_tax_amount < Decimal("0.00"):
+        raise ValueError("Supplier-invoice tax cannot be negative.")
+
+    if normalised_other_charges < Decimal("0.00"):
+        raise ValueError("Supplier-invoice charges cannot be negative.")
+
+    total = round_money(
+        line_subtotal + normalised_tax_amount + normalised_other_charges
+    )
+
+    return SupplierInvoiceTotals(
+        line_subtotal=line_subtotal,
+        tax_amount=normalised_tax_amount,
+        other_charges=normalised_other_charges,
+        total=total,
+    )
+
+
+def calculate_supplier_invoice_balance(
+    *,
+    supplier_invoice_id: int,
+    currency: str,
+    total: Decimal,
+    paid_amount: Decimal,
+) -> SupplierInvoiceBalance:
+    """Calculate an outstanding supplier balance."""
+
+    normalised_total = round_money(total)
+    normalised_paid_amount = round_money(paid_amount)
+    outstanding_amount = round_money(normalised_total - normalised_paid_amount)
+
+    if normalised_total < Decimal("0.00"):
+        raise ValueError("Supplier-invoice total cannot be negative.")
+
+    if normalised_paid_amount < Decimal("0.00"):
+        raise ValueError("Paid amount cannot be negative.")
+
+    if outstanding_amount < Decimal("0.00"):
+        raise ValueError("Paid amount cannot exceed the supplier-invoice total.")
+
+    return SupplierInvoiceBalance(
+        supplier_invoice_id=supplier_invoice_id,
+        currency=currency.strip().upper(),
+        total=normalised_total,
+        paid_amount=normalised_paid_amount,
+        outstanding_amount=outstanding_amount,
     )

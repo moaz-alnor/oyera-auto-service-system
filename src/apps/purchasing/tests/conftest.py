@@ -17,6 +17,7 @@ class PurchasingTestContext:
     """Contain employees used by purchasing tests."""
 
     manager: User
+    cashier: User
     receptionist: User
     technician: User
 
@@ -47,6 +48,10 @@ def purchasing_context() -> PurchasingTestContext:
         manager=_create_employee(
             username="purchasing.manager",
             role=RoleName.MANAGER,
+        ),
+        cashier=_create_employee(
+            username="purchasing.cashier",
+            role=RoleName.CASHIER,
         ),
         receptionist=_create_employee(
             username="purchasing.receptionist",

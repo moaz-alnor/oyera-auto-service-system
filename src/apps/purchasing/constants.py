@@ -19,6 +19,42 @@ class PurchaseOrderStatus(models.TextChoices):
     CANCELLED = "CANCELLED", "Cancelled"
 
 
+class SupplierInvoiceStatus(models.TextChoices):
+    """Identify the lifecycle of a supplier invoice."""
+
+    DRAFT = "DRAFT", "Draft"
+    POSTED = "POSTED", "Posted"
+    PARTIALLY_PAID = (
+        "PARTIALLY_PAID",
+        "Partially paid",
+    )
+    PAID = "PAID", "Paid"
+    VOIDED = "VOIDED", "Voided"
+
+
+class SupplierPaymentStatus(models.TextChoices):
+    """Identify whether a supplier payment remains active."""
+
+    POSTED = "POSTED", "Posted"
+    VOIDED = "VOIDED", "Voided"
+
+
+class SupplierPaymentMethod(models.TextChoices):
+    """Identify how the supplier was paid."""
+
+    CASH = "CASH", "Cash"
+    MOBILE_MONEY = (
+        "MOBILE_MONEY",
+        "Mobile money",
+    )
+    BANK_TRANSFER = (
+        "BANK_TRANSFER",
+        "Bank transfer",
+    )
+    CHEQUE = "CHEQUE", "Cheque"
+    OTHER = "OTHER", "Other"
+
+
 class PurchasingPermissionName(StrEnum):
     """Identify purchasing permissions used by the application."""
 
@@ -37,3 +73,12 @@ class PurchasingPermissionName(StrEnum):
 
     VIEW_GOODS_RECEIPT = "purchasing.view_goodsreceipt"
     RECEIVE_PURCHASE_ORDER = "purchasing.receive_purchase_order"
+    VIEW_SUPPLIER_INVOICE = "purchasing.view_supplierinvoice"
+    ADD_SUPPLIER_INVOICE = "purchasing.add_supplierinvoice"
+    CHANGE_SUPPLIER_INVOICE = "purchasing.change_supplierinvoice"
+    POST_SUPPLIER_INVOICE = "purchasing.post_supplier_invoice"
+    VOID_SUPPLIER_INVOICE = "purchasing.void_supplier_invoice"
+
+    VIEW_SUPPLIER_PAYMENT = "purchasing.view_supplierpayment"
+    RECORD_SUPPLIER_PAYMENT = "purchasing.record_supplier_payment"
+    VOID_SUPPLIER_PAYMENT = "purchasing.void_supplier_payment"
