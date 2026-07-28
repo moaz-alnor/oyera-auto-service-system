@@ -8,6 +8,9 @@ from apps.jobs.constants import JobPermissionName
 from apps.product_catalogue.constants import (
     ProductPermissionName,
 )
+from apps.purchasing.constants import (
+    PurchasingPermissionName,
+)
 from apps.quotations.constants import (
     QuotationPermissionName,
 )
@@ -110,6 +113,17 @@ ROLE_PERMISSION_POLICY: dict[
             BillingPermissionName.VIEW_PAYMENT.value,
             BillingPermissionName.RECORD_PAYMENT.value,
             BillingPermissionName.VOID_PAYMENT.value,
+            PurchasingPermissionName.VIEW_SUPPLIER.value,
+            PurchasingPermissionName.ADD_SUPPLIER.value,
+            PurchasingPermissionName.CHANGE_SUPPLIER.value,
+            PurchasingPermissionName.DEACTIVATE_SUPPLIER.value,
+            PurchasingPermissionName.REACTIVATE_SUPPLIER.value,
+            PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
+            PurchasingPermissionName.ADD_PURCHASE_ORDER.value,
+            PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value,
+            PurchasingPermissionName.SUBMIT_PURCHASE_ORDER.value,
+            PurchasingPermissionName.APPROVE_PURCHASE_ORDER.value,
+            PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -147,6 +161,8 @@ ROLE_PERMISSION_POLICY: dict[
             WorkshopPermissionName.VIEW_TASK_NOTE.value,
             InventoryPermissionName.VIEW_STOCK_LOCATION.value,
             InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
+            PurchasingPermissionName.VIEW_SUPPLIER.value,
+            PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
@@ -187,6 +203,8 @@ ROLE_PERMISSION_POLICY: dict[
             InventoryPermissionName.RELEASE_RESERVATION.value,
             InventoryPermissionName.ISSUE_STOCK.value,
             InventoryPermissionName.RETURN_STOCK.value,
+            PurchasingPermissionName.VIEW_SUPPLIER.value,
+            PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
@@ -239,6 +257,8 @@ ROLE_PERMISSION_POLICY: dict[
             BillingPermissionName.ISSUE_INVOICE.value,
             BillingPermissionName.VIEW_PAYMENT.value,
             BillingPermissionName.RECORD_PAYMENT.value,
+            PurchasingPermissionName.VIEW_SUPPLIER.value,
+            PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -318,6 +338,17 @@ ROLE_PERMISSION_POLICY: dict[
             BillingPermissionName.VIEW_PAYMENT.value,
             BillingPermissionName.RECORD_PAYMENT.value,
             BillingPermissionName.VOID_PAYMENT.value,
+            PurchasingPermissionName.VIEW_SUPPLIER.value,
+            PurchasingPermissionName.ADD_SUPPLIER.value,
+            PurchasingPermissionName.CHANGE_SUPPLIER.value,
+            PurchasingPermissionName.DEACTIVATE_SUPPLIER.value,
+            PurchasingPermissionName.REACTIVATE_SUPPLIER.value,
+            PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
+            PurchasingPermissionName.ADD_PURCHASE_ORDER.value,
+            PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value,
+            PurchasingPermissionName.SUBMIT_PURCHASE_ORDER.value,
+            PurchasingPermissionName.APPROVE_PURCHASE_ORDER.value,
+            PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value,
         }
     ),
 }
