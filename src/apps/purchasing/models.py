@@ -22,11 +22,17 @@ from apps.inventory.models import (
 from apps.product_catalogue.models import Product
 from apps.purchasing.calculations import (
     PurchaseOrderTotals,
+    SupplierInvoiceBalance,
     calculate_line_total,
     calculate_purchase_order_totals,
+    calculate_supplier_invoice_balance,
+    calculate_supplier_invoice_totals,
 )
 from apps.purchasing.constants import (
     PurchaseOrderStatus,
+    SupplierInvoiceStatus,
+    SupplierPaymentMethod,
+    SupplierPaymentStatus,
 )
 from apps.purchasing.normalization import (
     normalize_contact_value,
@@ -1054,4 +1060,724 @@ class GoodsReceiptLine(TimeStampedModel):
 
         return (
             f"{self.goods_receipt.goods_receipt_number} — {self.product_name_snapshot}"
+        )
+
+
+class SupplierInvoice(TimeStampedModel):
+    """Represent an invoice received from a supplier."""
+
+    if TYPE_CHECKING:
+        supplier_id: int
+        purchase_order_id: int
+        posted_by_id: int | None
+        voided_by_id: int | None
+        created_by_id: int
+        updated_by_id: int | None
+        lines: models.Manager["SupplierInvoiceLine"]
+        payments: models.Manager["SupplierPayment"]
+
+    supplier_invoice_number = models.CharField(
+        max_length=30,
+        unique=True,
+        editable=False,
+    )
+    supplier_reference = models.CharField(
+        max_length=120,
+    )
+    normalized_supplier_reference = models.CharField(
+        max_length=120,
+        editable=False,
+    )
+
+    supplier = models.ForeignKey(
+        Supplier,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices",
+    )
+    purchase_order = models.ForeignKey(
+        PurchaseOrder,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices",
+    )
+
+    purchase_order_number_snapshot = models.CharField(
+        max_length=30,
+        editable=False,
+    )
+    supplier_number_snapshot = models.CharField(
+        max_length=20,
+        editable=False,
+    )
+    supplier_name_snapshot = models.CharField(
+        max_length=200,
+        editable=False,
+    )
+
+    status = models.CharField(
+        max_length=30,
+        choices=SupplierInvoiceStatus.choices,
+        default=SupplierInvoiceStatus.DRAFT,
+        db_index=True,
+    )
+    currency = models.CharField(
+        max_length=3,
+        default="UGX",
+    )
+    invoice_date = models.DateField(
+        default=timezone.localdate,
+        db_index=True,
+    )
+    due_date = models.DateField(
+        db_index=True,
+    )
+
+    line_subtotal = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        editable=False,
+    )
+    tax_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        editable=False,
+    )
+    other_charges = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        editable=False,
+    )
+    total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        editable=False,
+    )
+
+    posted_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    posted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices_posted",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    voided_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    voided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices_voided",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    void_reason = models.TextField(
+        blank=True,
+        editable=False,
+    )
+
+    notes = models.TextField(
+        blank=True,
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices_created",
+        editable=False,
+    )
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoices_updated",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure supplier-invoice integrity."""
+
+        ordering = (
+            "-invoice_date",
+            "-pk",
+        )
+        permissions = (
+            (
+                "post_supplier_invoice",
+                "Can post a supplier invoice",
+            ),
+            (
+                "void_supplier_invoice",
+                "Can void a supplier invoice",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=(
+                    "supplier",
+                    "status",
+                ),
+                name="purch_sinv_supplier_idx",
+            ),
+            models.Index(
+                fields=(
+                    "due_date",
+                    "status",
+                ),
+                name="purch_sinv_due_idx",
+            ),
+            models.Index(
+                fields=(
+                    "purchase_order",
+                    "status",
+                ),
+                name="purch_sinv_order_idx",
+            ),
+        )
+        constraints = (
+            models.UniqueConstraint(
+                fields=(
+                    "supplier",
+                    "normalized_supplier_reference",
+                ),
+                name="purch_sinv_supplier_ref_uniq",
+            ),
+            models.CheckConstraint(
+                condition=Q(line_subtotal__gte=0),
+                name="purch_sinv_subtotal_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=Q(tax_amount__gte=0),
+                name="purch_sinv_tax_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=Q(other_charges__gte=0),
+                name="purch_sinv_charges_nonneg",
+            ),
+            models.CheckConstraint(
+                condition=Q(total__gte=0),
+                name="purch_sinv_total_nonneg",
+            ),
+        )
+
+    def clean(self) -> None:
+        """Validate invoice identity, totals, and lifecycle."""
+
+        super().clean()
+
+        self.supplier_invoice_number = self.supplier_invoice_number.strip().upper()
+        self.supplier_reference = " ".join(self.supplier_reference.strip().split())
+        self.normalized_supplier_reference = self.supplier_reference.casefold()
+        self.purchase_order_number_snapshot = (
+            self.purchase_order_number_snapshot.strip().upper()
+        )
+        self.supplier_number_snapshot = self.supplier_number_snapshot.strip().upper()
+        self.supplier_name_snapshot = " ".join(
+            self.supplier_name_snapshot.strip().split()
+        )
+        self.currency = self.currency.strip().upper()
+        self.notes = self.notes.strip()
+        self.void_reason = self.void_reason.strip()
+
+        errors: dict[str, str] = {}
+
+        if not self.supplier_invoice_number:
+            errors["supplier_invoice_number"] = "A supplier-invoice number is required."
+
+        if not self.supplier_reference:
+            errors["supplier_reference"] = "Enter the supplier's invoice reference."
+
+        if len(self.currency) != 3 or not self.currency.isalpha():
+            errors["currency"] = "Currency must be a three-letter code."
+
+        if self.due_date < self.invoice_date:
+            errors["due_date"] = (
+                "The due date cannot be earlier than the supplier invoice date."
+            )
+
+        try:
+            supplier = self.supplier
+        except ObjectDoesNotExist:
+            supplier = None
+
+        try:
+            purchase_order = self.purchase_order
+        except ObjectDoesNotExist:
+            purchase_order = None
+
+        if (
+            supplier is not None
+            and purchase_order is not None
+            and purchase_order.supplier.pk != supplier.pk
+        ):
+            errors["supplier"] = "The supplier must match the purchase order."
+
+        if purchase_order is not None and self.currency != purchase_order.currency:
+            errors["currency"] = (
+                "Supplier-invoice currency must match the purchase-order currency."
+            )
+
+        try:
+            expected_totals = calculate_supplier_invoice_totals(
+                line_totals=(self.line_subtotal,),
+                tax_amount=self.tax_amount,
+                other_charges=self.other_charges,
+            )
+        except ValueError as exc:
+            errors["total"] = str(exc)
+        else:
+            if self.total != expected_totals.total:
+                errors["total"] = (
+                    "Supplier-invoice total must equal "
+                    "line subtotal, tax, and other charges."
+                )
+
+        if self.status == SupplierInvoiceStatus.DRAFT:
+            if any(
+                (
+                    self.posted_at,
+                    self.posted_by_id,
+                    self.voided_at,
+                    self.voided_by_id,
+                    self.void_reason,
+                )
+            ):
+                errors["status"] = (
+                    "A draft supplier invoice cannot contain "
+                    "posting or void information."
+                )
+
+        active_statuses = {
+            SupplierInvoiceStatus.POSTED,
+            SupplierInvoiceStatus.PARTIALLY_PAID,
+            SupplierInvoiceStatus.PAID,
+        }
+
+        if self.status in active_statuses:
+            if self.posted_at is None or self.posted_by_id is None:
+                errors["posted_at"] = (
+                    "A posted supplier invoice requires the posting employee and time."
+                )
+
+            if any(
+                (
+                    self.voided_at,
+                    self.voided_by_id,
+                    self.void_reason,
+                )
+            ):
+                errors["status"] = (
+                    "An active supplier invoice cannot contain void information."
+                )
+
+        if self.status == SupplierInvoiceStatus.VOIDED:
+            if self.posted_at is None or self.posted_by_id is None:
+                errors["posted_at"] = (
+                    "A voided supplier invoice must previously have been posted."
+                )
+
+            if (
+                self.voided_at is None
+                or self.voided_by_id is None
+                or not self.void_reason
+            ):
+                errors["void_reason"] = (
+                    "A voided supplier invoice requires the employee, time, and reason."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    @property
+    def balance(self) -> SupplierInvoiceBalance:
+        """Return the current active payment balance."""
+        if self.pk is None:
+            raise ValueError(
+                "A supplier invoice must be saved before calculating its balance."
+            )
+
+        paid_amount = self.payments.filter(
+            status=SupplierPaymentStatus.POSTED
+        ).aggregate(total=Sum("amount"))["total"] or Decimal("0.00")
+
+        return calculate_supplier_invoice_balance(
+            supplier_invoice_id=self.pk,
+            currency=self.currency,
+            total=self.total,
+            paid_amount=paid_amount,
+        )
+
+    def __str__(self) -> str:
+        """Return internal and supplier invoice references."""
+
+        return f"{self.supplier_invoice_number} — {self.supplier_reference}"
+
+
+class SupplierInvoiceLine(TimeStampedModel):
+    """Match a supplier invoice line to received goods."""
+
+    if TYPE_CHECKING:
+        supplier_invoice_id: int
+        purchase_order_line_id: int
+        goods_receipt_line_id: int
+        created_by_id: int
+
+    supplier_invoice = models.ForeignKey(
+        SupplierInvoice,
+        on_delete=models.CASCADE,
+        related_name="lines",
+    )
+    purchase_order_line = models.ForeignKey(
+        PurchaseOrderLine,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoice_lines",
+    )
+    goods_receipt_line = models.ForeignKey(
+        GoodsReceiptLine,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoice_lines",
+    )
+
+    product_sku_snapshot = models.CharField(
+        max_length=40,
+        editable=False,
+    )
+    product_name_snapshot = models.CharField(
+        max_length=150,
+        editable=False,
+    )
+    unit_snapshot = models.CharField(
+        max_length=20,
+        editable=False,
+    )
+
+    quantity_invoiced = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+    )
+    unit_cost = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    line_total = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        editable=False,
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="supplier_invoice_lines_created",
+        editable=False,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure invoice-line matching integrity."""
+
+        ordering = (
+            "purchase_order_line__position",
+            "pk",
+        )
+        constraints = (
+            models.UniqueConstraint(
+                fields=(
+                    "supplier_invoice",
+                    "goods_receipt_line",
+                ),
+                name="purch_sinv_line_receipt_uniq",
+            ),
+            models.CheckConstraint(
+                condition=Q(quantity_invoiced__gt=0),
+                name="purch_sinv_line_qty_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_cost__gt=0),
+                name="purch_sinv_line_cost_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(line_total__gte=0),
+                name="purch_sinv_line_total_nonneg",
+            ),
+        )
+
+    def clean(self) -> None:
+        """Validate purchase-order and receipt alignment."""
+
+        super().clean()
+
+        self.product_sku_snapshot = self.product_sku_snapshot.strip().upper()
+        self.product_name_snapshot = " ".join(
+            self.product_name_snapshot.strip().split()
+        )
+        self.unit_snapshot = self.unit_snapshot.strip().upper()
+
+        errors: dict[str, str] = {}
+
+        if self.quantity_invoiced <= Decimal("0.000"):
+            errors["quantity_invoiced"] = "Invoiced quantity must be greater than zero."
+
+        if self.unit_cost <= Decimal("0.00"):
+            errors["unit_cost"] = "Supplier unit cost must be greater than zero."
+
+        expected_line_total = calculate_line_total(
+            quantity=self.quantity_invoiced,
+            unit_cost=self.unit_cost,
+        )
+
+        if self.line_total != expected_line_total:
+            errors["line_total"] = (
+                "Line total must equal invoiced quantity "
+                "multiplied by supplier unit cost."
+            )
+
+        try:
+            supplier_invoice = self.supplier_invoice
+        except ObjectDoesNotExist:
+            supplier_invoice = None
+
+        try:
+            purchase_order_line = self.purchase_order_line
+        except ObjectDoesNotExist:
+            purchase_order_line = None
+
+        try:
+            goods_receipt_line = self.goods_receipt_line
+        except ObjectDoesNotExist:
+            goods_receipt_line = None
+
+        if (
+            supplier_invoice is not None
+            and purchase_order_line is not None
+            and supplier_invoice.purchase_order.pk
+            != purchase_order_line.purchase_order.pk
+        ):
+            errors["purchase_order_line"] = (
+                "The invoice line belongs to a different purchase order."
+            )
+
+        if (
+            goods_receipt_line is not None
+            and purchase_order_line is not None
+            and goods_receipt_line.purchase_order_line.pk != purchase_order_line.pk
+        ):
+            errors["goods_receipt_line"] = (
+                "The goods receipt does not match the selected purchase-order line."
+            )
+
+        if (
+            goods_receipt_line is not None
+            and self.quantity_invoiced > goods_receipt_line.quantity_received
+        ):
+            errors["quantity_invoiced"] = (
+                "Invoiced quantity cannot exceed the received quantity."
+            )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        """Return invoice and product identity."""
+
+        return (
+            f"{self.supplier_invoice.supplier_invoice_number}"
+            f" — {self.product_name_snapshot}"
+        )
+
+
+class SupplierPayment(TimeStampedModel):
+    """Record money paid against a supplier invoice."""
+
+    if TYPE_CHECKING:
+        supplier_invoice_id: int
+        recorded_by_id: int
+        voided_by_id: int | None
+
+    payment_number = models.CharField(
+        max_length=40,
+        unique=True,
+        editable=False,
+    )
+    supplier_invoice = models.ForeignKey(
+        SupplierInvoice,
+        on_delete=models.PROTECT,
+        related_name="payments",
+    )
+
+    amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    currency = models.CharField(
+        max_length=3,
+    )
+    method = models.CharField(
+        max_length=30,
+        choices=SupplierPaymentMethod.choices,
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=SupplierPaymentStatus.choices,
+        default=SupplierPaymentStatus.POSTED,
+        db_index=True,
+    )
+
+    paid_at = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+    )
+    external_reference = models.CharField(
+        max_length=120,
+        blank=True,
+    )
+    notes = models.TextField(
+        blank=True,
+    )
+
+    recorded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="supplier_payments_recorded",
+        editable=False,
+    )
+
+    voided_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    voided_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="supplier_payments_voided",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    void_reason = models.TextField(
+        blank=True,
+        editable=False,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure supplier-payment integrity."""
+
+        ordering = (
+            "-paid_at",
+            "-pk",
+        )
+        permissions = (
+            (
+                "record_supplier_payment",
+                "Can record a supplier payment",
+            ),
+            (
+                "void_supplier_payment",
+                "Can void a supplier payment",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=(
+                    "supplier_invoice",
+                    "status",
+                ),
+                name="purch_spay_invoice_idx",
+            ),
+            models.Index(
+                fields=(
+                    "paid_at",
+                    "status",
+                ),
+                name="purch_spay_time_idx",
+            ),
+        )
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(amount__gt=0),
+                name="purch_spay_amount_positive",
+            ),
+        )
+
+    def clean(self) -> None:
+        """Validate amount, currency, and payment lifecycle."""
+
+        super().clean()
+
+        self.payment_number = self.payment_number.strip().upper()
+        self.currency = self.currency.strip().upper()
+        self.external_reference = self.external_reference.strip()
+        self.notes = self.notes.strip()
+        self.void_reason = self.void_reason.strip()
+
+        errors: dict[str, str] = {}
+
+        if not self.payment_number:
+            errors["payment_number"] = "A supplier-payment number is required."
+
+        if self.amount <= Decimal("0.00"):
+            errors["amount"] = "Supplier payment must be greater than zero."
+
+        if len(self.currency) != 3 or not self.currency.isalpha():
+            errors["currency"] = "Currency must be a three-letter code."
+
+        try:
+            supplier_invoice = self.supplier_invoice
+        except ObjectDoesNotExist:
+            supplier_invoice = None
+
+        if supplier_invoice is not None and self.currency != supplier_invoice.currency:
+            errors["currency"] = (
+                "Payment currency must match the supplier-invoice currency."
+            )
+
+        if supplier_invoice is not None and supplier_invoice.status in {
+            SupplierInvoiceStatus.DRAFT,
+            SupplierInvoiceStatus.VOIDED,
+        }:
+            errors["supplier_invoice"] = (
+                "Payments require an active posted supplier invoice."
+            )
+
+        if self.status == SupplierPaymentStatus.POSTED:
+            if any(
+                (
+                    self.voided_at,
+                    self.voided_by_id,
+                    self.void_reason,
+                )
+            ):
+                errors["status"] = "A posted payment cannot contain void information."
+
+        if self.status == SupplierPaymentStatus.VOIDED:
+            if (
+                self.voided_at is None
+                or self.voided_by_id is None
+                or not self.void_reason
+            ):
+                errors["void_reason"] = (
+                    "A voided supplier payment requires the employee, time, and reason."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        """Return payment and supplier-invoice identity."""
+
+        return (
+            f"{self.payment_number} — {self.supplier_invoice.supplier_invoice_number}"
         )
