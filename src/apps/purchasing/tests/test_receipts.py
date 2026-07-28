@@ -213,7 +213,7 @@ def test_manager_partially_receives_purchase_order(
 
     receipt_line = receipt.lines.get()
 
-    assert receipt.goods_receipt_number == ("GRN-000001")
+    assert receipt.goods_receipt_number == (f"GRN-{receipt.pk:06d}")
     assert order.status == (PurchaseOrderStatus.PARTIALLY_RECEIVED)
     assert receipt_line.quantity_received == Decimal("4.000")
     assert receipt_line.stock_movement.quantity == Decimal("4.000")
