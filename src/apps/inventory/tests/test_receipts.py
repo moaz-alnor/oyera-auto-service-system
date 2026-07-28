@@ -37,7 +37,7 @@ def test_manager_receives_stock(
         ),
     )
 
-    assert movement.movement_number == "MOV-000001"
+    assert movement.movement_number == (f"MOV-{movement.pk:06d}")
     assert movement.movement_type == StockMovementType.RECEIPT
     assert movement.quantity == Decimal("10.000")
     assert movement.signed_quantity == Decimal("10.000")
@@ -67,8 +67,8 @@ def test_multiple_receipts_accumulate_balance(
         ),
     )
 
-    assert first.movement_number == "MOV-000001"
-    assert second.movement_number == "MOV-000002"
+    assert first.movement_number == (f"MOV-{first.pk:06d}")
+    assert second.movement_number == (f"MOV-{second.pk:06d}")
     assert get_on_hand_quantity(
         inventory_item_id=(inventory_context.inventory_item.pk)
     ) == Decimal("15.500")

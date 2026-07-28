@@ -50,7 +50,7 @@ def test_manager_registers_supplier(
         command=_register_command(),
     )
 
-    assert supplier.supplier_number == "SUP-000001"
+    assert supplier.supplier_number == (f"SUP-{supplier.pk:06d}")
     assert supplier.code == "AUTO-PARTS-01"
     assert supplier.is_active is True
     assert supplier.created_by == (purchasing_context.manager)

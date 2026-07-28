@@ -116,7 +116,7 @@ def test_receptionist_can_open_job_with_snapshots() -> None:
 
     vehicle.refresh_from_db()
 
-    assert job_card.job_number == "JOB-000001"
+    assert job_card.job_number == (f"JOB-{job_card.pk:06d}")
     assert job_card.status == JobStatus.OPEN
     assert job_card.customer_name_snapshot == "Daniel Kato"
     assert job_card.vehicle_registration_snapshot == "UBD 245X"

@@ -43,7 +43,7 @@ def test_receptionist_can_register_customer() -> None:
         ),
     )
 
-    assert customer.customer_number == "CUS-000001"
+    assert customer.customer_number == (f"CUS-{customer.pk:06d}")
     assert customer.normalized_phone_number == "0700123456"
     assert customer.email == "daniel@example.com"
     assert customer.created_by == receptionist

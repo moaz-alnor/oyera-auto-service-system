@@ -117,7 +117,7 @@ def test_completed_work_order_creates_draft_invoice(
     )
 
     assert invoice.status == InvoiceStatus.DRAFT
-    assert invoice.invoice_number == "INV-000001"
+    assert invoice.invoice_number == (f"INV-{billing_context.work_order.pk:06d}")
     assert invoice.currency == "UGX"
     assert invoice.service_subtotal == Decimal("80000.00")
     assert invoice.product_subtotal == Decimal("0.00")

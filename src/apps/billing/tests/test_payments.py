@@ -138,7 +138,7 @@ def test_cashier_records_partial_payment(
     invoice.refresh_from_db()
     balance = get_invoice_balance(invoice_id=invoice.pk)
 
-    assert payment.payment_number == "PAY-000001-01"
+    assert payment.payment_number == (f"PAY-{invoice.pk:06d}-01")
     assert payment.status == PaymentStatus.POSTED
     assert payment.notes == "First customer instalment."
     assert invoice.status == InvoiceStatus.PARTIALLY_PAID
@@ -176,7 +176,7 @@ def test_final_payment_marks_invoice_paid(
     invoice.refresh_from_db()
     balance = get_invoice_balance(invoice_id=invoice.pk)
 
-    assert final_payment.payment_number == "PAY-000001-02"
+    assert final_payment.payment_number == (f"PAY-{invoice.pk:06d}-02")
     assert invoice.status == InvoiceStatus.PAID
     assert balance.paid_amount == Decimal("80000.00")
     assert balance.outstanding_amount == Decimal("0.00")

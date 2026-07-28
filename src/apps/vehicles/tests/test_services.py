@@ -80,7 +80,7 @@ def test_receptionist_can_register_vehicle() -> None:
         ended_at__isnull=True,
     )
 
-    assert vehicle.vehicle_number == "VEH-000001"
+    assert vehicle.vehicle_number == (f"VEH-{vehicle.pk:06d}")
     assert vehicle.normalized_registration_number == "UBD245X"
     assert vehicle.current_owner == owner
     assert ownership.owner == owner
