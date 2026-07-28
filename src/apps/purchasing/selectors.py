@@ -6,7 +6,10 @@ from django.db.models import (
     QuerySet,
 )
 
+from apps.inventory.models import StockMovement
 from apps.purchasing.models import (
+    GoodsReceipt,
+    GoodsReceiptLine,
     PurchaseOrder,
     PurchaseOrderLine,
     Supplier,
@@ -207,3 +210,118 @@ def get_purchase_orders_for_supplier(
     """Return all orders belonging to one supplier."""
 
     return purchase_order_list_queryset().filter(supplier_id=supplier_id)
+
+
+def goods_receipt_list_queryset() -> QuerySet[GoodsReceipt]:
+    """Return receipts with their audit relationships loaded."""
+
+    receipt_lines = (
+        GoodsReceiptLine.objects.select_related(
+            "purchase_order_line",
+            "purchase_order_line__product",
+            "inventory_item",
+            "inventory_item__product",
+            "inventory_item__location",
+            "stock_movement",
+            "stock_movement__created_by",
+            "created_by",
+        )
+        .all()
+        .order_by(
+            "purchase_order_line__position",
+            "pk",
+        )
+    )
+
+    return (
+        GoodsReceipt.objects.select_related(
+            "purchase_order",
+            "purchase_order__supplier",
+            "received_by",
+        )
+        .prefetch_related(
+            Prefetch(
+                "lines",
+                queryset=receipt_lines,
+            )
+        )
+        .order_by(
+            "-received_at",
+            "-pk",
+        )
+    )
+
+
+def search_goods_receipts(
+    *,
+    query: str = "",
+    purchase_order_id: int | None = None,
+    supplier_id: int | None = None,
+) -> QuerySet[GoodsReceipt]:
+    """Return goods receipts matching supplied filters."""
+
+    receipts = goods_receipt_list_queryset()
+
+    if purchase_order_id is not None:
+        receipts = receipts.filter(purchase_order_id=purchase_order_id)
+
+    if supplier_id is not None:
+        receipts = receipts.filter(purchase_order__supplier_id=supplier_id)
+
+    search_value = query.strip()
+
+    if not search_value:
+        return receipts
+
+    return receipts.filter(
+        Q(goods_receipt_number__icontains=(search_value))
+        | Q(purchase_order_number_snapshot__icontains=(search_value))
+        | Q(supplier_number_snapshot__icontains=(search_value))
+        | Q(supplier_name_snapshot__icontains=(search_value))
+        | Q(supplier_delivery_reference__icontains=(search_value))
+        | Q(lines__product_sku_snapshot__icontains=(search_value))
+        | Q(lines__product_name_snapshot__icontains=(search_value))
+        | Q(lines__stock_movement__movement_number__icontains=(search_value))
+        | Q(lines__inventory_item__location__code__icontains=(search_value))
+    ).distinct()
+
+
+def get_goods_receipt_by_id(
+    *,
+    goods_receipt_id: int,
+) -> GoodsReceipt:
+    """Return one receipt with its complete audit trail."""
+
+    return goods_receipt_list_queryset().get(pk=goods_receipt_id)
+
+
+def get_goods_receipts_for_purchase_order(
+    *,
+    purchase_order_id: int,
+) -> QuerySet[GoodsReceipt]:
+    """Return all deliveries for one purchase order."""
+
+    return goods_receipt_list_queryset().filter(purchase_order_id=purchase_order_id)
+
+
+def get_goods_receipt_movements(
+    *,
+    goods_receipt_id: int,
+) -> QuerySet[StockMovement]:
+    """Return Inventory movements created by one receipt."""
+
+    return (
+        StockMovement.objects.filter(
+            goods_receipt_line__goods_receipt_id=(goods_receipt_id)
+        )
+        .select_related(
+            "inventory_item",
+            "inventory_item__product",
+            "inventory_item__location",
+            "created_by",
+        )
+        .order_by(
+            "occurred_at",
+            "pk",
+        )
+    )

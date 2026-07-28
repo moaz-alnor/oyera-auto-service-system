@@ -124,6 +124,8 @@ ROLE_PERMISSION_POLICY: dict[
             PurchasingPermissionName.SUBMIT_PURCHASE_ORDER.value,
             PurchasingPermissionName.APPROVE_PURCHASE_ORDER.value,
             PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value,
+            PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
+            PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value,
         }
     ),
     RoleName.RECEPTIONIST: frozenset(
@@ -163,6 +165,7 @@ ROLE_PERMISSION_POLICY: dict[
             InventoryPermissionName.VIEW_INVENTORY_ITEM.value,
             PurchasingPermissionName.VIEW_SUPPLIER.value,
             PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
+            PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
         }
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
@@ -205,6 +208,7 @@ ROLE_PERMISSION_POLICY: dict[
             InventoryPermissionName.RETURN_STOCK.value,
             PurchasingPermissionName.VIEW_SUPPLIER.value,
             PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
+            PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
         }
     ),
     RoleName.TECHNICIAN: frozenset(
@@ -259,6 +263,7 @@ ROLE_PERMISSION_POLICY: dict[
             BillingPermissionName.RECORD_PAYMENT.value,
             PurchasingPermissionName.VIEW_SUPPLIER.value,
             PurchasingPermissionName.VIEW_PURCHASE_ORDER.value,
+            PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
         }
     ),
     RoleName.MANAGER: frozenset(
@@ -349,6 +354,8 @@ ROLE_PERMISSION_POLICY: dict[
             PurchasingPermissionName.SUBMIT_PURCHASE_ORDER.value,
             PurchasingPermissionName.APPROVE_PURCHASE_ORDER.value,
             PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value,
+            PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
+            PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value,
         }
     ),
 }

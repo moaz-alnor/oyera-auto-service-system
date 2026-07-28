@@ -10,9 +10,15 @@ from django.core.exceptions import (
     ValidationError,
 )
 from django.db import models
-from django.db.models import Q
+from django.db.models import Q, Sum
+from django.utils import timezone
 
 from apps.core.models import TimeStampedModel
+from apps.inventory.constants import StockMovementType
+from apps.inventory.models import (
+    InventoryItem,
+    StockMovement,
+)
 from apps.product_catalogue.models import Product
 from apps.purchasing.calculations import (
     PurchaseOrderTotals,
@@ -541,6 +547,7 @@ class PurchaseOrderLine(TimeStampedModel):
     if TYPE_CHECKING:
         purchase_order_id: int
         product_id: int
+        receipt_lines: models.Manager["GoodsReceiptLine"]
 
     purchase_order = models.ForeignKey(
         PurchaseOrder,
@@ -636,6 +643,25 @@ class PurchaseOrderLine(TimeStampedModel):
             unit_cost=self.unit_cost,
         )
 
+    @property
+    def quantity_received(self) -> Decimal:
+        """Return the total quantity received for this line."""
+
+        return self.receipt_lines.aggregate(total=Sum("quantity_received"))[
+            "total"
+        ] or Decimal("0.000")
+
+    @property
+    def remaining_quantity(self) -> Decimal:
+        """Return the quantity still awaiting delivery."""
+
+        remaining = self.quantity_ordered - self.quantity_received
+
+        return max(
+            remaining,
+            Decimal("0.000"),
+        )
+
     def clean(self) -> None:
         """Allow line changes only on draft orders."""
 
@@ -688,4 +714,344 @@ class PurchaseOrderLine(TimeStampedModel):
         return (
             f"{self.purchase_order.purchase_order_number} — "
             f"{self.product_name_snapshot}"
+        )
+
+
+class GoodsReceipt(TimeStampedModel):
+    """Record one posted supplier delivery."""
+
+    if TYPE_CHECKING:
+        purchase_order_id: int
+        received_by_id: int
+        lines: models.Manager["GoodsReceiptLine"]
+
+    goods_receipt_number = models.CharField(
+        max_length=30,
+        unique=True,
+        editable=False,
+    )
+    purchase_order = models.ForeignKey(
+        PurchaseOrder,
+        on_delete=models.PROTECT,
+        related_name="goods_receipts",
+    )
+
+    purchase_order_number_snapshot = models.CharField(
+        max_length=30,
+        editable=False,
+    )
+    supplier_number_snapshot = models.CharField(
+        max_length=20,
+        editable=False,
+    )
+    supplier_name_snapshot = models.CharField(
+        max_length=200,
+        editable=False,
+    )
+
+    supplier_delivery_reference = models.CharField(
+        max_length=120,
+        blank=True,
+    )
+    received_at = models.DateTimeField(
+        default=timezone.now,
+        db_index=True,
+    )
+    notes = models.TextField(
+        blank=True,
+    )
+
+    received_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="goods_receipts_received",
+        editable=False,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure receipt ordering and permissions."""
+
+        ordering = (
+            "-received_at",
+            "-pk",
+        )
+        permissions = (
+            (
+                "receive_purchase_order",
+                "Can receive an approved purchase order",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=(
+                    "purchase_order",
+                    "received_at",
+                ),
+                name="purch_receipt_order_time_idx",
+            ),
+        )
+
+    def clean(self) -> None:
+        """Validate receipt identity and purchase-order state."""
+
+        super().clean()
+
+        self.goods_receipt_number = self.goods_receipt_number.strip().upper()
+        self.purchase_order_number_snapshot = (
+            self.purchase_order_number_snapshot.strip().upper()
+        )
+        self.supplier_number_snapshot = self.supplier_number_snapshot.strip().upper()
+        self.supplier_name_snapshot = " ".join(
+            self.supplier_name_snapshot.strip().split()
+        )
+        self.supplier_delivery_reference = self.supplier_delivery_reference.strip()
+        self.notes = self.notes.strip()
+
+        errors: dict[str, str] = {}
+
+        try:
+            purchase_order = self.purchase_order
+        except ObjectDoesNotExist:
+            purchase_order = None
+
+        receivable_statuses = {
+            PurchaseOrderStatus.APPROVED,
+            PurchaseOrderStatus.PARTIALLY_RECEIVED,
+            PurchaseOrderStatus.RECEIVED,
+        }
+
+        if (
+            purchase_order is not None
+            and purchase_order.status not in receivable_statuses
+        ):
+            errors["purchase_order"] = (
+                "Goods receipts require an approved purchase order."
+            )
+
+        if not self.goods_receipt_number:
+            errors["goods_receipt_number"] = "A goods-receipt number is required."
+
+        if not self.purchase_order_number_snapshot:
+            errors["purchase_order_number_snapshot"] = (
+                "The purchase-order number snapshot is required."
+            )
+
+        if not self.supplier_name_snapshot:
+            errors["supplier_name_snapshot"] = "The supplier name snapshot is required."
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        """Return receipt and purchase-order identity."""
+
+        return f"{self.goods_receipt_number} — {self.purchase_order_number_snapshot}"
+
+
+class GoodsReceiptLine(TimeStampedModel):
+    """Connect received goods to inventory movements."""
+
+    if TYPE_CHECKING:
+        goods_receipt_id: int
+        purchase_order_line_id: int
+        inventory_item_id: int
+        stock_movement_id: int
+        created_by_id: int
+
+    goods_receipt = models.ForeignKey(
+        GoodsReceipt,
+        on_delete=models.CASCADE,
+        related_name="lines",
+    )
+    purchase_order_line = models.ForeignKey(
+        PurchaseOrderLine,
+        on_delete=models.PROTECT,
+        related_name="receipt_lines",
+    )
+    inventory_item = models.ForeignKey(
+        InventoryItem,
+        on_delete=models.PROTECT,
+        related_name="purchase_receipt_lines",
+    )
+    stock_movement = models.OneToOneField(
+        StockMovement,
+        on_delete=models.PROTECT,
+        related_name="goods_receipt_line",
+    )
+
+    product_sku_snapshot = models.CharField(
+        max_length=40,
+        editable=False,
+    )
+    product_name_snapshot = models.CharField(
+        max_length=150,
+        editable=False,
+    )
+    unit_snapshot = models.CharField(
+        max_length=20,
+        editable=False,
+    )
+
+    quantity_received = models.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+    )
+    unit_cost_snapshot = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+    )
+    currency_snapshot = models.CharField(
+        max_length=3,
+        editable=False,
+    )
+
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="goods_receipt_lines_created",
+        editable=False,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure receipt-line integrity."""
+
+        ordering = (
+            "purchase_order_line__position",
+            "pk",
+        )
+        constraints = (
+            models.UniqueConstraint(
+                fields=(
+                    "goods_receipt",
+                    "purchase_order_line",
+                ),
+                name="purch_receipt_unique_order_line",
+            ),
+            models.CheckConstraint(
+                condition=Q(quantity_received__gt=0),
+                name="purch_receipt_quantity_positive",
+            ),
+            models.CheckConstraint(
+                condition=Q(unit_cost_snapshot__gt=0),
+                name="purch_receipt_cost_positive",
+            ),
+        )
+        indexes = (
+            models.Index(
+                fields=(
+                    "purchase_order_line",
+                    "created_at",
+                ),
+                name="purch_receipt_line_time_idx",
+            ),
+        )
+
+    def clean(self) -> None:
+        """Validate receipt, product and movement alignment."""
+
+        super().clean()
+
+        self.product_sku_snapshot = self.product_sku_snapshot.strip().upper()
+        self.product_name_snapshot = " ".join(
+            self.product_name_snapshot.strip().split()
+        )
+        self.unit_snapshot = self.unit_snapshot.strip().upper()
+        self.currency_snapshot = self.currency_snapshot.strip().upper()
+
+        errors: dict[str, str] = {}
+
+        if self.quantity_received <= Decimal("0.000"):
+            errors["quantity_received"] = "Received quantity must be greater than zero."
+
+        if self.unit_cost_snapshot <= Decimal("0.00"):
+            errors["unit_cost_snapshot"] = (
+                "Received unit cost must be greater than zero."
+            )
+
+        if len(self.currency_snapshot) != 3 or not self.currency_snapshot.isalpha():
+            errors["currency_snapshot"] = "Currency must be a three-letter code."
+
+        try:
+            receipt = self.goods_receipt
+        except ObjectDoesNotExist:
+            receipt = None
+
+        try:
+            order_line = self.purchase_order_line
+        except ObjectDoesNotExist:
+            order_line = None
+
+        try:
+            inventory_item = self.inventory_item
+        except ObjectDoesNotExist:
+            inventory_item = None
+
+        try:
+            movement = self.stock_movement
+        except ObjectDoesNotExist:
+            movement = None
+
+        if (
+            receipt is not None
+            and order_line is not None
+            and order_line.purchase_order_id != receipt.purchase_order_id
+        ):
+            errors["purchase_order_line"] = (
+                "The received line belongs to a different purchase order."
+            )
+
+        if (
+            order_line is not None
+            and inventory_item is not None
+            and order_line.product.pk != inventory_item.product.pk
+        ):
+            errors["inventory_item"] = (
+                "The inventory product must match the ordered product."
+            )
+
+        if (
+            order_line is not None
+            and self.quantity_received > order_line.quantity_ordered
+        ):
+            errors["quantity_received"] = (
+                "A receipt line cannot exceed the original ordered quantity."
+            )
+
+        if movement is not None:
+            if movement.movement_type != StockMovementType.RECEIPT:
+                errors["stock_movement"] = (
+                    "A goods receipt must reference an inventory receipt movement."
+                )
+
+            if (
+                inventory_item is not None
+                and movement.inventory_item.pk != inventory_item.pk
+            ):
+                errors["stock_movement"] = (
+                    "The stock movement belongs to a different inventory item."
+                )
+
+            if movement.quantity != self.quantity_received:
+                errors["stock_movement"] = (
+                    "The stock movement quantity must match the goods-receipt quantity."
+                )
+
+            if movement.unit_cost != self.unit_cost_snapshot:
+                errors["stock_movement"] = (
+                    "The stock movement cost must match the purchase-order cost."
+                )
+
+            if movement.currency != self.currency_snapshot:
+                errors["stock_movement"] = (
+                    "The stock movement currency must match the purchase order."
+                )
+
+        if errors:
+            raise ValidationError(errors)
+
+    def __str__(self) -> str:
+        """Return receipt and product identity."""
+
+        return (
+            f"{self.goods_receipt.goods_receipt_number} — {self.product_name_snapshot}"
         )

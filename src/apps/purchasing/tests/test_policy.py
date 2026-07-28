@@ -28,6 +28,32 @@ _PURCHASE_ORDER_PERMISSIONS = {
     PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value,
 }
 
+_GOODS_RECEIPT_PERMISSIONS = {
+    PurchasingPermissionName.VIEW_GOODS_RECEIPT.value,
+    PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value,
+}
+
+
+def _goods_receipt_permissions(
+    *,
+    role: RoleName,
+) -> set[str]:
+    """Return goods-receipt permissions for one role."""
+
+    group = Group.objects.get(name=role.value)
+
+    permissions = {
+        f"{app_label}.{codename}"
+        for app_label, codename in (
+            group.permissions.filter(content_type__app_label="purchasing").values_list(
+                "content_type__app_label",
+                "codename",
+            )
+        )
+    }
+
+    return permissions & _GOODS_RECEIPT_PERMISSIONS
+
 
 def _purchase_order_permissions(
     *,
@@ -147,3 +173,41 @@ def test_technician_has_no_purchase_order_permissions() -> None:
     ensure_default_roles()
 
     assert _purchase_order_permissions(role=RoleName.TECHNICIAN) == set()
+
+
+@pytest.mark.django_db
+def test_management_receives_purchase_orders() -> None:
+    """Allow management to receive supplier deliveries."""
+
+    ensure_default_roles()
+
+    for role in (
+        RoleName.ADMINISTRATOR,
+        RoleName.MANAGER,
+    ):
+        assert _goods_receipt_permissions(role=role) == _GOODS_RECEIPT_PERMISSIONS
+
+
+@pytest.mark.django_db
+def test_selected_roles_view_goods_receipts() -> None:
+    """Allow operational roles to inspect receipts."""
+
+    ensure_default_roles()
+
+    view_only = {PurchasingPermissionName.VIEW_GOODS_RECEIPT.value}
+
+    for role in (
+        RoleName.RECEPTIONIST,
+        RoleName.SENIOR_TECHNICIAN,
+        RoleName.CASHIER,
+    ):
+        assert _goods_receipt_permissions(role=role) == view_only
+
+
+@pytest.mark.django_db
+def test_technician_has_no_goods_receipt_permissions() -> None:
+    """Keep supplier receiving outside technician duties."""
+
+    ensure_default_roles()
+
+    assert _goods_receipt_permissions(role=RoleName.TECHNICIAN) == set()
