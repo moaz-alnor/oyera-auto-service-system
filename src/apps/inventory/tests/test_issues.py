@@ -106,7 +106,7 @@ def test_manager_partially_issues_reserved_stock(
     reservation.refresh_from_db()
     context.requirement.refresh_from_db()
 
-    assert movement.movement_number == "MOV-000002"
+    assert movement.movement_number == (f"MOV-{movement.pk:06d}")
     assert movement.movement_type == StockMovementType.ISSUE
     assert movement.quantity == Decimal("1.000")
     assert movement.signed_quantity == Decimal("-1.000")
@@ -240,7 +240,7 @@ def test_manager_returns_part_of_original_issue(
     reservation.refresh_from_db()
     context.requirement.refresh_from_db()
 
-    assert returned.movement_number == "MOV-000003"
+    assert returned.movement_number == (f"MOV-{returned.pk:06d}")
     assert returned.movement_type == StockMovementType.RETURN
     assert returned.source_movement == issue
     assert returned.reservation == reservation

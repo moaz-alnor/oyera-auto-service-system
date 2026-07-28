@@ -38,7 +38,7 @@ def test_manager_records_positive_adjustment(
         ),
     )
 
-    assert movement.movement_number == "MOV-000001"
+    assert movement.movement_number == (f"MOV-{movement.pk:06d}")
     assert movement.movement_type == StockMovementType.ADJUSTMENT_IN
     assert movement.signed_quantity == Decimal("3.000")
     assert get_on_hand_quantity(
@@ -70,7 +70,7 @@ def test_manager_records_negative_adjustment(
         ),
     )
 
-    assert movement.movement_number == "MOV-000002"
+    assert movement.movement_number == (f"MOV-{movement.pk:06d}")
     assert movement.signed_quantity == Decimal("-2.000")
     assert get_on_hand_quantity(
         inventory_item_id=(inventory_context.inventory_item.pk)

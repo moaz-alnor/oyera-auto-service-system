@@ -141,14 +141,12 @@ def _get_locked_purchase_order(
     """Return one locked purchase order."""
 
     try:
+        # Lock only the purchase-order row. The nullable audit
+        # relationships must not be included in a PostgreSQL
+        # FOR UPDATE outer join.
         return (
             PurchaseOrder.objects.select_for_update()
-            .select_related(
-                "supplier",
-                "submitted_by",
-                "approved_by",
-                "cancelled_by",
-            )
+            .select_related("supplier")
             .get(pk=purchase_order_id)
         )
     except PurchaseOrder.DoesNotExist as exc:

@@ -144,7 +144,7 @@ def test_manager_creates_purchase_order(
         supplier_id=supplier.pk,
     )
 
-    assert order.purchase_order_number == "PO-000001"
+    assert order.purchase_order_number == (f"PO-{order.pk:06d}")
     assert order.status == PurchaseOrderStatus.DRAFT
     assert order.currency == "UGX"
     assert order.supplier_code_snapshot == supplier.code
