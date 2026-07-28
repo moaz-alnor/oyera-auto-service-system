@@ -1,0 +1,89 @@
+name: Django CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: django-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Django quality gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: oyera_ci
+          POSTGRES_USER: oyera_ci
+          POSTGRES_PASSWORD: oyera_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oyera_ci -d oyera_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SETTINGS_MODULE: config.settings.ci
+
+      POSTGRES_DB: oyera_ci
+      POSTGRES_USER: oyera_ci
+      POSTGRES_PASSWORD: oyera_ci_password
+      POSTGRES_HOST: 127.0.0.1
+      POSTGRES_PORT: "5432"
+
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: |
+            requirements/base.txt
+            requirements/development.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements/development.txt
+
+      - name: Run Ruff linting
+        run: ruff check src
+
+      - name: Check Ruff formatting
+        run: ruff format --check src
+
+      - name: Check migration drift
+        run: |
+          python src/manage.py makemigrations \
+            --check \
+            --dry-run
+
+      - name: Apply database migrations
+        run: python src/manage.py migrate --noinput
+
+      - name: Run Django system checks
+        run: python src/manage.py check
+
+      - name: Run automated tests
+        run: pytest --ds=config.settings.ci
