@@ -1,0 +1,362 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ supplier.supplier_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ supplier.supplier_number }}
+            </p>
+
+            <h1>{{ supplier.name }}</h1>
+
+            <p class="page-header__description">
+                Supplier code
+                <strong>{{ supplier.code }}</strong>
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:supplier_list' %}"
+            >
+                Back to suppliers
+            </a>
+
+            {% if perms.purchasing.change_supplier %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_update' supplier.pk %}"
+                >
+                    Edit supplier
+                </a>
+            {% endif %}
+
+            {% if supplier.is_active %}
+                {% if perms.purchasing.deactivate_supplier %}
+                    <form
+                        class="inline-form"
+                        method="post"
+                        action="{% url 'purchasing:supplier_deactivate' supplier.pk %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            class="button button--danger"
+                            type="submit"
+                        >
+                            Deactivate supplier
+                        </button>
+                    </form>
+                {% endif %}
+            {% else %}
+                {% if perms.purchasing.reactivate_supplier %}
+                    <form
+                        class="inline-form"
+                        method="post"
+                        action="{% url 'purchasing:supplier_reactivate' supplier.pk %}"
+                    >
+                        {% csrf_token %}
+
+                        <button
+                            class="button button--primary"
+                            type="submit"
+                        >
+                            Reactivate supplier
+                        </button>
+                    </form>
+                {% endif %}
+            {% endif %}
+        </div>
+    </header>
+
+    {% if not supplier.is_active %}
+        <div class="alert alert--error">
+            <p>
+                <strong>This supplier is inactive.</strong>
+                New purchase orders cannot be created for
+                this supplier until it is reactivated.
+            </p>
+        </div>
+    {% endif %}
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Supplier information</h2>
+
+            <p class="page-header__description">
+                Business identity, contact information and
+                payment settings.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    {% if supplier.is_active %}
+                        <span class="status-badge status-badge--active">
+                            Active
+                        </span>
+                    {% else %}
+                        <span class="status-badge status-badge--inactive">
+                            Inactive
+                        </span>
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier number</dt>
+                <dd>{{ supplier.supplier_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Supplier code</dt>
+                <dd>{{ supplier.code }}</dd>
+            </div>
+
+            <div>
+                <dt>Contact person</dt>
+                <dd>
+                    {{ supplier.contact_name|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Phone number</dt>
+                <dd>
+                    {{ supplier.phone_number|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Email</dt>
+                <dd>
+                    {{ supplier.email|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Tax identifier</dt>
+                <dd>
+                    {{ supplier.tax_identifier|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Payment terms</dt>
+                <dd>
+                    {{ supplier.payment_terms_days }}
+                    day{{ supplier.payment_terms_days|pluralize }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Preferred currency</dt>
+                <dd>{{ supplier.preferred_currency }}</dd>
+            </div>
+
+            <div>
+                <dt>Registered</dt>
+                <dd>
+                    {{ supplier.created_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Registered by</dt>
+                <dd>{{ supplier.created_by }}</dd>
+            </div>
+
+            <div>
+                <dt>Last updated</dt>
+                <dd>
+                    {{ supplier.updated_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Updated by</dt>
+                <dd>
+                    {{ supplier.updated_by|default:"Not recorded" }}
+                </dd>
+            </div>
+        </dl>
+
+        {% if supplier.address %}
+            <div class="details-section">
+                <h3>Business address</h3>
+
+                <p>
+                    {{ supplier.address|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+
+        {% if supplier.notes %}
+            <div class="details-section">
+                <h3>Notes</h3>
+
+                <p>
+                    {{ supplier.notes|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Recent purchase orders</h2>
+
+            <p class="page-header__description">
+                The ten most recent purchase orders created
+                for this supplier.
+            </p>
+        </header>
+
+        {% if purchase_orders %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Purchase order</th>
+                            <th scope="col">Reference</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Expected delivery</th>
+                            <th scope="col">Total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for purchase_order in purchase_orders %}
+                            <tr>
+                                <td>
+                                    {{ purchase_order.purchase_order_number }}
+                                </td>
+
+                                <td>
+                                    {{ purchase_order.supplier_reference|default:"Not provided" }}
+                                </td>
+
+                                <td>
+                                    {{ purchase_order.get_status_display }}
+                                </td>
+
+                                <td>
+                                    {% if purchase_order.expected_delivery_date %}
+                                        {{ purchase_order.expected_delivery_date|date:"d M Y" }}
+                                    {% else %}
+                                        Not scheduled
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ purchase_order.currency }}
+                                    {{ purchase_order.totals.total|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No purchase orders</h3>
+
+                <p>
+                    No purchase orders have been created for
+                    this supplier.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header page-header--actions">
+            <div>
+                <h2>Recent supplier invoices</h2>
+
+                <p class="page-header__description">
+                    The ten most recent supplier invoices
+                    linked to this supplier.
+                </p>
+            </div>
+
+            {% if perms.purchasing.view_supplierinvoice %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_invoice_list' %}?supplier={{ supplier.pk }}"
+                >
+                    View all supplier invoices
+                </a>
+            {% endif %}
+        </header>
+
+        {% if supplier_invoices %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Invoice</th>
+                            <th scope="col">Supplier reference</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Due date</th>
+                            <th scope="col">Total</th>
+                            <th scope="col">Outstanding</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for supplier_invoice in supplier_invoices %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'purchasing:supplier_invoice_detail' supplier_invoice.pk %}"
+                                    >
+                                        {{ supplier_invoice.supplier_invoice_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.supplier_reference }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.get_status_display }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.due_date|date:"d M Y" }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.currency }}
+                                    {{ supplier_invoice.total|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.currency }}
+                                    {{ supplier_invoice.outstanding_amount|floatformat:2 }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No supplier invoices</h3>
+
+                <p>
+                    No supplier invoices have been recorded
+                    for this supplier.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

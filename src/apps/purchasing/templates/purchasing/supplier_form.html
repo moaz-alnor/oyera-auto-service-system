@@ -1,0 +1,177 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ page_title }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Purchasing management
+        </p>
+
+        <h1>{{ page_title }}</h1>
+
+        <p class="page-header__description">
+            {{ page_description }}
+        </p>
+    </header>
+
+    {% if duplicate_confirmation_required %}
+        <section
+            class="alert alert--error"
+            role="alert"
+        >
+            <h2>Possible duplicate supplier</h2>
+
+            <p>
+                Review the matching supplier records before
+                creating or updating this record.
+            </p>
+
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Number</th>
+                            <th scope="col">Code</th>
+                            <th scope="col">Name</th>
+                            <th scope="col">Contact</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for possible_supplier in possible_duplicates %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'purchasing:supplier_detail' possible_supplier.pk %}"
+                                        target="_blank"
+                                        rel="noopener"
+                                    >
+                                        {{ possible_supplier.supplier_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ possible_supplier.code }}
+                                </td>
+
+                                <td>
+                                    {{ possible_supplier.name }}
+                                </td>
+
+                                <td>
+                                    {% if possible_supplier.contact_name %}
+                                        {{ possible_supplier.contact_name }}
+                                    {% elif possible_supplier.phone_number %}
+                                        {{ possible_supplier.phone_number }}
+                                    {% elif possible_supplier.email %}
+                                        {{ possible_supplier.email }}
+                                    {% else %}
+                                        Not provided
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if possible_supplier.is_active %}
+                                        <span class="status-badge status-badge--active">
+                                            Active
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Inactive
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    {% endif %}
+
+    <section class="card">
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">
+                        {{ error }}
+                    </p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+            novalidate
+        >
+            {% csrf_token %}
+
+            {% if duplicate_confirmation_required %}
+                <input
+                    type="hidden"
+                    name="confirm_duplicate"
+                    value="true"
+                >
+            {% else %}
+                {{ form.confirm_duplicate }}
+            {% endif %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{{ cancel_url }}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    {% if duplicate_confirmation_required %}
+                        Confirm and save
+                    {% else %}
+                        {{ submit_label }}
+                    {% endif %}
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}
