@@ -252,13 +252,26 @@
     </section>
 
     <section class="card">
-        <header class="page-header">
-            <h2>Ordered products</h2>
+        <header class="page-header page-header--actions">
+            <div>
+                <h2>Ordered products</h2>
 
-            <p class="page-header__description">
-                Product, quantity and supplier-cost snapshots
-                preserved for this purchase order.
-            </p>
+                <p class="page-header__description">
+                    Product, quantity and supplier-cost snapshots
+                    preserved for this purchase order.
+                </p>
+            </div>
+
+            {% if purchase_order.status == "DRAFT" %}
+                {% if perms.purchasing.change_purchaseorder %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:purchase_order_line_add' purchase_order.pk %}"
+                    >
+                        Add product
+                    </a>
+                {% endif %}
+            {% endif %}
         </header>
 
         {% if purchase_order_lines %}
@@ -273,6 +286,12 @@
                             <th scope="col">Quantity</th>
                             <th scope="col">Unit cost</th>
                             <th scope="col">Line total</th>
+
+                            {% if purchase_order.status == "DRAFT" %}
+                                {% if perms.purchasing.change_purchaseorder %}
+                                    <th scope="col">Actions</th>
+                                {% endif %}
+                            {% endif %}
                         </tr>
                     </thead>
 
@@ -314,6 +333,28 @@
                                         {{ line.line_total|floatformat:2 }}
                                     </strong>
                                 </td>
+
+                                {% if purchase_order.status == "DRAFT" %}
+                                    {% if perms.purchasing.change_purchaseorder %}
+                                        <td>
+                                            <div class="page-actions">
+                                                <a
+                                                    class="button button--secondary"
+                                                    href="{% url 'purchasing:purchase_order_line_update' line.pk %}"
+                                                >
+                                                    Edit
+                                                </a>
+
+                                                <a
+                                                    class="button button--danger"
+                                                    href="{% url 'purchasing:purchase_order_line_remove' line.pk %}"
+                                                >
+                                                    Remove
+                                                </a>
+                                            </div>
+                                        </td>
+                                    {% endif %}
+                                {% endif %}
                             </tr>
                         {% endfor %}
                     </tbody>
@@ -325,9 +366,20 @@
 
                 <p>
                     This purchase order is still empty.
-                    Product-line management will be available
-                    from this page while the order is a draft.
+                    Product-line management is available
+                    while the order remains a draft.
                 </p>
+
+                {% if purchase_order.status == "DRAFT" %}
+                    {% if perms.purchasing.change_purchaseorder %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'purchasing:purchase_order_line_add' purchase_order.pk %}"
+                        >
+                            Add first product
+                        </a>
+                    {% endif %}
+                {% endif %}
             </div>
         {% endif %}
     </section>

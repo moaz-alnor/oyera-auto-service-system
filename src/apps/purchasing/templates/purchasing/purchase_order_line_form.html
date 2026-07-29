@@ -1,0 +1,184 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ page_title }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ purchase_order.purchase_order_number }}
+            </p>
+
+            <h1>{{ page_title }}</h1>
+
+            <p class="page-header__description">
+                {{ page_description }}
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{{ cancel_url }}"
+            >
+                Back to purchase order
+            </a>
+        </div>
+    </header>
+
+    {% if purchase_order.status != "DRAFT" %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>
+                    Product lines can no longer be changed.
+                </strong>
+            </p>
+
+            <p>
+                Only draft purchase orders allow products,
+                quantities and supplier costs to be changed.
+            </p>
+        </div>
+    {% else %}
+        {% if purchase_order_line %}
+            <section class="card">
+                <header class="page-header">
+                    <h2>Selected product</h2>
+
+                    <p class="page-header__description">
+                        The product identity is preserved while
+                        its quantity, cost and description can
+                        be updated.
+                    </p>
+                </header>
+
+                <dl class="details-grid">
+                    <div>
+                        <dt>Position</dt>
+                        <dd>
+                            {{ purchase_order_line.position }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>SKU</dt>
+                        <dd>
+                            {{ purchase_order_line.product_sku_snapshot }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Product</dt>
+                        <dd>
+                            {{ purchase_order_line.product_name_snapshot }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Unit</dt>
+                        <dd>
+                            {{ purchase_order_line.unit_snapshot }}
+                        </dd>
+                    </div>
+                </dl>
+            </section>
+        {% endif %}
+
+        <section class="card">
+            <header class="page-header">
+                <h2>
+                    {% if purchase_order_line %}
+                        Product-line information
+                    {% else %}
+                        Product and supplier cost
+                    {% endif %}
+                </h2>
+
+                <p class="page-header__description">
+                    {% if purchase_order_line %}
+                        Update the ordered quantity, supplier
+                        unit cost or purchase description.
+                    {% else %}
+                        Select an active product that is not
+                        already included in this order.
+                    {% endif %}
+                </p>
+            </header>
+
+            {% if form.non_field_errors %}
+                <div
+                    class="alert alert--error"
+                    role="alert"
+                >
+                    {% for error in form.non_field_errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form
+                class="form"
+                method="post"
+                novalidate
+            >
+                {% csrf_token %}
+
+                {% for hidden_field in form.hidden_fields %}
+                    {{ hidden_field }}
+                {% endfor %}
+
+                {% for field in form.visible_fields %}
+                    <div class="form-group">
+                        <label
+                            class="form-label"
+                            for="{{ field.id_for_label }}"
+                        >
+                            {{ field.label }}
+
+                            {% if field.field.required %}
+                                <span aria-hidden="true">*</span>
+                            {% endif %}
+                        </label>
+
+                        {{ field }}
+
+                        {% if field.help_text %}
+                            <p class="form-help">
+                                {{ field.help_text }}
+                            </p>
+                        {% endif %}
+
+                        {% for error in field.errors %}
+                            <p class="form-error">
+                                {{ error }}
+                            </p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <div class="form-actions">
+                    <a
+                        class="button button--secondary"
+                        href="{{ cancel_url }}"
+                    >
+                        Cancel
+                    </a>
+
+                    <button
+                        class="button button--primary"
+                        type="submit"
+                    >
+                        {{ submit_label }}
+                    </button>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}
