@@ -38,6 +38,26 @@ urlpatterns = [
         name="supplier_reactivate",
     ),
     path(
+        "purchase-orders/",
+        views.purchase_order_list,
+        name="purchase_order_list",
+    ),
+    path(
+        "purchase-orders/new/",
+        views.purchase_order_create,
+        name="purchase_order_create",
+    ),
+    path(
+        "purchase-orders/<int:purchase_order_id>/",
+        views.purchase_order_detail,
+        name="purchase_order_detail",
+    ),
+    path(
+        "purchase-orders/<int:purchase_order_id>/edit/",
+        views.purchase_order_update,
+        name="purchase_order_update",
+    ),
+    path(
         "supplier-invoices/",
         views.supplier_invoice_list,
         name="supplier_invoice_list",

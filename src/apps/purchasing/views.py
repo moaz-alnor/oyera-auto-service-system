@@ -28,6 +28,8 @@ from apps.purchasing.constants import (
     SupplierPaymentMethod,
 )
 from apps.purchasing.forms import (
+    PurchaseOrderCreateForm,
+    PurchaseOrderUpdateForm,
     SupplierInvoiceCreateForm,
     SupplierInvoiceLineFormSet,
     SupplierInvoicePostForm,
@@ -46,13 +48,21 @@ from apps.purchasing.models import (
 )
 from apps.purchasing.selectors import (
     find_possible_supplier_duplicates,
+    get_purchase_order_by_id,
     get_purchase_orders_for_supplier,
     get_supplier_by_id,
     get_supplier_invoice_by_id,
     get_supplier_invoices_for_supplier,
     get_supplier_payment_by_id,
+    search_purchase_orders,
     search_supplier_invoices,
     search_suppliers,
+)
+from apps.purchasing.services.purchase_orders import (
+    CreatePurchaseOrderCommand,
+    UpdatePurchaseOrderCommand,
+    create_purchase_order,
+    update_purchase_order,
 )
 from apps.purchasing.services.supplier_invoices import (
     CreateSupplierInvoiceCommand,
@@ -417,6 +427,263 @@ def supplier_reactivate(
     return redirect(
         "purchasing:supplier_detail",
         supplier_id=supplier_id,
+    )
+
+
+def _get_purchase_order_or_404(
+    *,
+    purchase_order_id: int,
+) -> PurchaseOrder:
+    """Return one purchase order or raise HTTP 404."""
+
+    try:
+        return get_purchase_order_by_id(purchase_order_id=purchase_order_id)
+    except PurchaseOrder.DoesNotExist as exc:
+        raise Http404("Purchase order not found.") from exc
+
+
+def _validated_purchase_order_status(
+    value: str,
+) -> str:
+    """Return a recognised purchase-order status."""
+
+    valid_statuses = {choice.value for choice in PurchaseOrderStatus}
+
+    if value in valid_statuses:
+        return value
+
+    return ""
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_PURCHASE_ORDER.value)
+def purchase_order_list(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display searchable purchase-order records."""
+
+    query = request.GET.get("q", "").strip()
+    selected_status = _validated_purchase_order_status(request.GET.get("status", ""))
+    selected_supplier_id = _integer_filter(request.GET.get("supplier", ""))
+
+    purchase_orders = search_purchase_orders(
+        query=query,
+        status=selected_status,
+        supplier_id=selected_supplier_id,
+    )
+
+    paginator = Paginator(
+        purchase_orders,
+        20,
+    )
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "purchasing/purchase_order_list.html",
+        {
+            "page": page,
+            "purchase_orders": page.object_list,
+            "query": query,
+            "selected_status": selected_status,
+            "selected_supplier_id": (selected_supplier_id),
+            "status_choices": (PurchaseOrderStatus.choices),
+            "suppliers": search_suppliers(include_inactive=True),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.ADD_PURCHASE_ORDER.value)
+def purchase_order_create(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Create one draft purchase order."""
+
+    if request.method == "POST":
+        form = PurchaseOrderCreateForm(request.POST)
+
+        if form.is_valid():
+            supplier = form.cleaned_data["supplier"]
+
+            try:
+                purchase_order = create_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    command=(
+                        CreatePurchaseOrderCommand(
+                            supplier_id=supplier.pk,
+                            currency=(form.cleaned_data["currency"]),
+                            discount_percentage=(
+                                form.cleaned_data["discount_percentage"]
+                            ),
+                            tax_percentage=(form.cleaned_data["tax_percentage"]),
+                            delivery_cost=(form.cleaned_data["delivery_cost"]),
+                            expected_delivery_date=(
+                                form.cleaned_data["expected_delivery_date"]
+                            ),
+                            supplier_reference=(
+                                form.cleaned_data["supplier_reference"]
+                            ),
+                            notes=(form.cleaned_data["notes"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{purchase_order.purchase_order_number} "
+                        "was created successfully."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order.pk),
+                )
+    else:
+        initial: dict[str, object] = {}
+
+        selected_supplier_id = _integer_filter(request.GET.get("supplier", ""))
+
+        if selected_supplier_id is not None:
+            try:
+                selected_supplier = get_supplier_by_id(
+                    supplier_id=(selected_supplier_id)
+                )
+            except Supplier.DoesNotExist:
+                selected_supplier = None
+
+            if selected_supplier is not None and selected_supplier.is_active:
+                initial["supplier"] = selected_supplier
+                initial["currency"] = selected_supplier.preferred_currency
+
+        form = PurchaseOrderCreateForm(initial=initial)
+
+    return render(
+        request,
+        "purchasing/purchase_order_form.html",
+        {
+            "form": form,
+            "page_title": ("Create purchase order"),
+            "page_description": (
+                "Create a draft purchase order before adding products."
+            ),
+            "submit_label": ("Create purchase order"),
+            "cancel_url": reverse("purchasing:purchase_order_list"),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_PURCHASE_ORDER.value)
+def purchase_order_detail(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Display one purchase order and its lines."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=(purchase_order_id))
+
+    return render(
+        request,
+        "purchasing/purchase_order_detail.html",
+        {
+            "purchase_order": purchase_order,
+            "purchase_order_lines": (purchase_order.lines.all()),
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_update(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Update one draft purchase-order header."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=(purchase_order_id))
+
+    if request.method == "POST":
+        form = PurchaseOrderUpdateForm(
+            request.POST,
+            instance=purchase_order,
+        )
+
+        if form.is_valid():
+            supplier = form.cleaned_data["supplier"]
+
+            try:
+                updated_purchase_order = update_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                    command=(
+                        UpdatePurchaseOrderCommand(
+                            supplier_id=supplier.pk,
+                            currency=(form.cleaned_data["currency"]),
+                            discount_percentage=(
+                                form.cleaned_data["discount_percentage"]
+                            ),
+                            tax_percentage=(form.cleaned_data["tax_percentage"]),
+                            delivery_cost=(form.cleaned_data["delivery_cost"]),
+                            expected_delivery_date=(
+                                form.cleaned_data["expected_delivery_date"]
+                            ),
+                            supplier_reference=(
+                                form.cleaned_data["supplier_reference"]
+                            ),
+                            notes=(form.cleaned_data["notes"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{updated_purchase_order.purchase_order_number} "
+                        "was updated successfully."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderUpdateForm(instance=purchase_order)
+
+    return render(
+        request,
+        "purchasing/purchase_order_form.html",
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "page_title": ("Edit purchase order"),
+            "page_description": (
+                "Update the supplier, pricing, delivery and reference details."
+            ),
+            "submit_label": "Save changes",
+            "cancel_url": reverse(
+                "purchasing:purchase_order_detail",
+                args=(purchase_order_id,),
+            ),
+        },
     )
 
 
