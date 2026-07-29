@@ -11,6 +11,15 @@ from django.utils import timezone
 from apps.purchasing.constants import (
     SupplierInvoiceStatus,
 )
+from apps.purchasing.services.supplier_invoices import (
+    CreateSupplierInvoiceCommand,
+    SupplierInvoiceLineCommand,
+    create_supplier_invoice,
+)
+from apps.purchasing.services.supplier_payments import (
+    VoidSupplierPaymentCommand,
+    void_supplier_payment,
+)
 from apps.purchasing.tests.conftest import (
     PurchasingTestContext,
 )
@@ -257,3 +266,210 @@ def test_supplier_invoice_create_displays_duplicate_line_error(
 
     assert response.status_code == 200
     assert "A goods-receipt line cannot appear more than once." in content
+
+
+def _create_draft_supplier_invoice(
+    *,
+    context: PurchasingTestContext,
+):
+    """Create one matched draft for template tests."""
+
+    receipt_context = create_posted_receipt(context=context)
+    today = timezone.localdate()
+
+    supplier_invoice = create_supplier_invoice(
+        actor=context.manager,
+        command=CreateSupplierInvoiceCommand(
+            purchase_order_id=(receipt_context.purchase_order.pk),
+            supplier_reference=("SUP-DETAIL-DRAFT-001"),
+            invoice_date=today,
+            due_date=(today + timedelta(days=30)),
+            lines=(
+                SupplierInvoiceLineCommand(
+                    goods_receipt_line_id=(receipt_context.goods_receipt_line.pk),
+                    quantity_invoiced=Decimal("4.000"),
+                    unit_cost=Decimal("25000.00"),
+                ),
+            ),
+            notes="Supplier detail template test.",
+        ),
+    )
+
+    return supplier_invoice, receipt_context
+
+
+def test_draft_supplier_invoice_detail_displays_match_audit(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display draft identity and three-way-match data."""
+
+    (
+        supplier_invoice,
+        receipt_context,
+    ) = _create_draft_supplier_invoice(context=purchasing_context)
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_invoice_detail",
+            args=(supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert supplier_invoice.supplier_invoice_number in content
+    assert "SUP-DETAIL-DRAFT-001" in content
+    assert supplier_invoice.purchase_order_number_snapshot in content
+    assert receipt_context.goods_receipt.goods_receipt_number in content
+    assert receipt_context.product.sku in content
+    assert receipt_context.product.name in content
+    assert "4.000" in content
+    assert "25000.00" in content
+    assert "100000.00" in content
+    assert "Post supplier invoice" in content
+    assert "Record supplier payment" not in content
+    assert "Void supplier invoice" not in content
+
+
+def test_partially_paid_invoice_detail_displays_balance_and_payment(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display totals and active supplier payment history."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-DETAIL-PAID-001"),
+        payment_amount=Decimal("40000.00"),
+    )
+    supplier_invoice = context.supplier_invoice
+    payment = context.supplier_payment
+
+    assert payment is not None
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_invoice_detail",
+            args=(supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Partially paid" in content
+    assert "100000.00" in content
+    assert "40000.00" in content
+    assert "60000.00" in content
+    assert payment.payment_number in content
+    assert "BANK-SELECTOR-001" in content
+    assert "Bank transfer" in content
+    assert "Record supplier payment" in content
+    assert "Void supplier payment" in content
+
+
+def test_supplier_invoice_detail_displays_overdue_warning(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display an overdue outstanding-balance warning."""
+
+    today = timezone.localdate()
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-DETAIL-OVERDUE-001"),
+        invoice_date=(today - timedelta(days=40)),
+        due_date=(today - timedelta(days=10)),
+        payment_amount=Decimal("40000.00"),
+    )
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_invoice_detail",
+            args=(context.supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "This supplier invoice is overdue" in content
+    assert "60000.00" in content
+
+
+def test_supplier_invoice_detail_preserves_voided_payment_audit(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display voided payment evidence and restored balance."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-DETAIL-VOID-PAYMENT-001"),
+        payment_amount=Decimal("40000.00"),
+    )
+    payment = context.supplier_payment
+
+    assert payment is not None
+
+    void_supplier_payment(
+        actor=purchasing_context.manager,
+        payment_id=payment.pk,
+        command=VoidSupplierPaymentCommand(reason="Duplicate supplier payment."),
+    )
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_invoice_detail",
+            args=(context.supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert payment.payment_number in content
+    assert "Voided" in content
+    assert "Duplicate supplier payment." in content
+    assert "100000.00" in content
+    assert "Void supplier payment" not in content
+
+
+def test_cashier_sees_payment_action_without_management_actions(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Show Cashier payment access without void or post access."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-DETAIL-CASHIER-001"),
+    )
+
+    client.force_login(purchasing_context.cashier)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_invoice_detail",
+            args=(context.supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Record supplier payment" in content
+    assert "Post supplier invoice" not in content
+    assert "Void supplier invoice" not in content
+    assert "Void supplier payment" not in content
