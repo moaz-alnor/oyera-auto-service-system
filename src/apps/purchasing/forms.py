@@ -25,10 +25,125 @@ from apps.purchasing.constants import (
 from apps.purchasing.models import (
     GoodsReceiptLine,
     PurchaseOrder,
+    Supplier,
     SupplierInvoice,
 )
 
 _DATETIME_LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
+
+
+class SupplierDetailsForm(forms.ModelForm):
+    """Collect supplier information for browser workflows."""
+
+    confirm_duplicate = forms.BooleanField(
+        required=False,
+        widget=forms.HiddenInput,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure supplier fields and widgets."""
+
+        model = Supplier
+        fields = (
+            "code",
+            "name",
+            "contact_name",
+            "phone_number",
+            "email",
+            "address",
+            "tax_identifier",
+            "payment_terms_days",
+            "preferred_currency",
+            "notes",
+        )
+        widgets = {
+            "code": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": ("For example, AUTO-PARTS-01"),
+                }
+            ),
+            "name": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "organization",
+                    "placeholder": ("Supplier or company name"),
+                }
+            ),
+            "contact_name": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "name",
+                    "placeholder": ("Primary contact person"),
+                }
+            ),
+            "phone_number": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "tel",
+                    "placeholder": ("For example, +256 700 123 456"),
+                }
+            ),
+            "email": forms.EmailInput(
+                attrs={
+                    "class": "form-control",
+                    "autocomplete": "email",
+                    "placeholder": ("accounts@example.com"),
+                }
+            ),
+            "address": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 3,
+                    "placeholder": ("Supplier business address"),
+                }
+            ),
+            "tax_identifier": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": ("Tax or registration identifier"),
+                }
+            ),
+            "payment_terms_days": forms.NumberInput(
+                attrs={
+                    "class": "form-control",
+                    "min": "0",
+                    "step": "1",
+                }
+            ),
+            "preferred_currency": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "maxlength": "3",
+                    "placeholder": "UGX",
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": ("Optional supplier notes"),
+                }
+            ),
+        }
+
+    def clean_preferred_currency(self) -> str:
+        """Normalise the three-letter currency code."""
+
+        currency = self.cleaned_data["preferred_currency"].strip().upper()
+
+        if len(currency) != 3 or not currency.isalpha():
+            raise forms.ValidationError("Currency must use a three-letter code.")
+
+        return currency
+
+
+class SupplierRegistrationForm(SupplierDetailsForm):
+    """Collect information required to register a supplier."""
+
+
+class SupplierUpdateForm(SupplierDetailsForm):
+    """Collect replacement supplier information."""
 
 
 class PurchaseOrderChoiceField(forms.ModelChoiceField):
