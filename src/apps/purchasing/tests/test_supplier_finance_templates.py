@@ -473,3 +473,250 @@ def test_cashier_sees_payment_action_without_management_actions(
     assert "Post supplier invoice" not in content
     assert "Void supplier invoice" not in content
     assert "Void supplier payment" not in content
+
+
+def test_supplier_invoice_post_template_requires_confirmation(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display posting evidence and require confirmation."""
+
+    (
+        supplier_invoice,
+        _receipt_context,
+    ) = _create_draft_supplier_invoice(context=purchasing_context)
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_invoice_post",
+            args=(supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert supplier_invoice.supplier_invoice_number in content
+    assert supplier_invoice.purchase_order_number_snapshot in content
+    assert "100000.00" in content
+    assert "Posting confirmation" in content
+    assert 'name="confirmation"' in content
+    assert "Post supplier invoice" in content
+
+    invalid_response = client.post(
+        reverse(
+            "purchasing:supplier_invoice_post",
+            args=(supplier_invoice.pk,),
+        ),
+        {},
+    )
+
+    invalid_content = invalid_response.content.decode()
+
+    supplier_invoice.refresh_from_db()
+
+    assert invalid_response.status_code == 200
+    assert "This field is required." in invalid_content
+    assert supplier_invoice.status == (SupplierInvoiceStatus.DRAFT)
+
+
+def test_supplier_invoice_void_template_displays_warning(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display invoice identity and irreversible warning."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-ACTION-VOID-001"),
+    )
+    supplier_invoice = context.supplier_invoice
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_invoice_void",
+            args=(supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+    normalised_content = " ".join(content.split())
+
+    assert response.status_code == 200
+    assert supplier_invoice.supplier_invoice_number in content
+    assert "SUP-ACTION-VOID-001" in content
+    assert "Voiding this supplier invoice cannot be undone." in normalised_content
+    assert "100000.00" in content
+    assert 'name="reason"' in content
+    assert "Void supplier invoice" in content
+
+
+def test_supplier_invoice_void_template_requires_reason(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display a required-reason validation error."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-ACTION-VOID-REQUIRED-001"),
+    )
+    supplier_invoice = context.supplier_invoice
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.post(
+        reverse(
+            "purchasing:supplier_invoice_void",
+            args=(supplier_invoice.pk,),
+        ),
+        {
+            "reason": "",
+        },
+    )
+
+    supplier_invoice.refresh_from_db()
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "This field is required." in content
+    assert supplier_invoice.status == (SupplierInvoiceStatus.POSTED)
+
+
+def test_supplier_payment_template_displays_balance(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display invoice balance and payment controls."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-ACTION-PAYMENT-001"),
+    )
+    supplier_invoice = context.supplier_invoice
+
+    client.force_login(purchasing_context.cashier)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_payment_record",
+            args=(supplier_invoice.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert supplier_invoice.supplier_invoice_number in content
+    assert "SUP-ACTION-PAYMENT-001" in content
+    assert "100000.00" in content
+    assert "Outstanding balance" in content
+    assert 'name="amount"' in content
+    assert 'max="100000.00"' in content
+    assert 'name="method"' in content
+    assert 'name="external_reference"' in content
+    assert 'name="paid_at"' in content
+    assert "Record supplier payment" in content
+
+
+def test_supplier_payment_template_displays_overpayment_error(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display payment balance validation errors."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-ACTION-OVERPAY-001"),
+        payment_amount=Decimal("40000.00"),
+    )
+    supplier_invoice = context.supplier_invoice
+
+    client.force_login(purchasing_context.cashier)
+
+    response = client.post(
+        reverse(
+            "purchasing:supplier_payment_record",
+            args=(supplier_invoice.pk,),
+        ),
+        {
+            "amount": "60000.01",
+            "method": "BANK_TRANSFER",
+            "external_reference": ("BANK-OVERPAY-001"),
+            "paid_at": "",
+            "notes": "",
+        },
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert "Supplier payment cannot exceed the outstanding invoice balance." in content
+    assert "60000.00" in content
+
+
+def test_supplier_payment_void_template_displays_audit_details(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Display payment identity and void consequences."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        supplier_reference=("SUP-ACTION-VOID-PAYMENT-001"),
+        payment_amount=Decimal("40000.00"),
+    )
+    payment = context.supplier_payment
+
+    assert payment is not None
+
+    client.force_login(purchasing_context.manager)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_payment_void",
+            args=(payment.pk,),
+        )
+    )
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+    assert payment.payment_number in content
+    assert "40000.00" in content
+    assert "Bank transfer" in content
+    assert "BANK-SELECTOR-001" in content
+    assert "no longer count" in content
+    assert 'name="reason"' in content
+    assert "Void supplier payment" in content
+
+
+def test_cashier_cannot_open_supplier_payment_void_template(
+    client: Client,
+    purchasing_context: PurchasingTestContext,
+) -> None:
+    """Restrict supplier-payment reversal to management."""
+
+    context = create_supplier_finance_context(
+        context=purchasing_context,
+        payment_amount=Decimal("40000.00"),
+    )
+    payment = context.supplier_payment
+
+    assert payment is not None
+
+    client.force_login(purchasing_context.cashier)
+
+    response = client.get(
+        reverse(
+            "purchasing:supplier_payment_void",
+            args=(payment.pk,),
+        )
+    )
+
+    assert response.status_code == 403

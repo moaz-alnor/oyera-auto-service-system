@@ -1,0 +1,171 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Void {{ payment.payment_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Supplier-payment correction
+            </p>
+
+            <h1>
+                Void {{ payment.payment_number }}
+            </h1>
+
+            <p class="page-header__description">
+                Preserve the payment record while removing
+                it from the active supplier-invoice balance.
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'purchasing:supplier_invoice_detail' supplier_invoice.pk %}"
+        >
+            Back to supplier invoice
+        </a>
+    </header>
+
+    <section class="card">
+        <div class="message message--error">
+            <p>
+                <strong>
+                    The payment will remain visible in the
+                    supplier-invoice audit history.
+                </strong>
+            </p>
+
+            <p>
+                Once voided, its amount will no longer count
+                towards the paid balance.
+            </p>
+        </div>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Supplier invoice</dt>
+                <dd>
+                    {{ supplier_invoice.supplier_invoice_number }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier</dt>
+                <dd>
+                    {{ supplier_invoice.supplier_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Payment</dt>
+                <dd>{{ payment.payment_number }}</dd>
+            </div>
+
+            <div>
+                <dt>Status</dt>
+                <dd>{{ payment.get_status_display }}</dd>
+            </div>
+
+            <div>
+                <dt>Amount</dt>
+                <dd>
+                    <strong>
+                        {{ payment.currency }}
+                        {{ payment.amount|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Method</dt>
+                <dd>{{ payment.get_method_display }}</dd>
+            </div>
+
+            <div>
+                <dt>External reference</dt>
+                <dd>
+                    {{ payment.external_reference|default:"—" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Paid at</dt>
+                <dd>
+                    {{ payment.paid_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Recorded by</dt>
+                <dd>{{ payment.recorded_by }}</dd>
+            </div>
+        </dl>
+
+        {% if payment.notes %}
+            <div class="details-section">
+                <h3>Payment notes</h3>
+
+                <p>{{ payment.notes|linebreaksbr }}</p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <form method="post" novalidate>
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="form-group">
+                    <label for="{{ field.id_for_label }}">
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="form-actions">
+                <button
+                    class="button button--danger"
+                    type="submit"
+                >
+                    Void supplier payment
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_invoice_detail' supplier_invoice.pk %}"
+                >
+                    Cancel
+                </a>
+            </div>
+        </form>
+    </section>
+{% endblock %}
