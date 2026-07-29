@@ -1,0 +1,124 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ page_title }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Purchasing management
+        </p>
+
+        <h1>{{ page_title }}</h1>
+
+        <p class="page-header__description">
+            {{ page_description }}
+        </p>
+    </header>
+
+    {% if purchase_order and purchase_order.status != "DRAFT" %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>
+                    This purchase order is no longer a draft.
+                </strong>
+
+                Only draft purchase orders can be edited.
+            </p>
+        </div>
+    {% endif %}
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Order information</h2>
+
+            <p class="page-header__description">
+                Select the supplier and record the financial,
+                delivery and reference information.
+            </p>
+        </header>
+
+        {% if form.non_field_errors %}
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                {% for error in form.non_field_errors %}
+                    <p class="form-error">
+                        {{ error }}
+                    </p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form
+            class="form"
+            method="post"
+            novalidate
+        >
+            {% csrf_token %}
+
+            {% for hidden_field in form.hidden_fields %}
+                {{ hidden_field }}
+            {% endfor %}
+
+            {% for field in form.visible_fields %}
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ field.id_for_label }}"
+                    >
+                        {{ field.label }}
+
+                        {% if field.field.required %}
+                            <span aria-hidden="true">*</span>
+                        {% endif %}
+                    </label>
+
+                    {{ field }}
+
+                    {% if field.help_text %}
+                        <p class="form-help">
+                            {{ field.help_text }}
+                        </p>
+                    {% endif %}
+
+                    {% for error in field.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="alert">
+                <p>
+                    The purchase order will remain in
+                    <strong>Draft</strong> status after this
+                    form is saved. Products are added from the
+                    purchase-order detail page.
+                </p>
+            </div>
+
+            <div class="form-actions">
+                <a
+                    class="button button--secondary"
+                    href="{{ cancel_url }}"
+                >
+                    Cancel
+                </a>
+
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    {{ submit_label }}
+                </button>
+            </div>
+        </form>
+    </section>
+{% endblock %}

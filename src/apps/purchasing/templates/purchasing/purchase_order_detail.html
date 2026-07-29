@@ -1,0 +1,391 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ purchase_order.purchase_order_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ purchase_order.purchase_order_number }}
+            </p>
+
+            <h1>Purchase order</h1>
+
+            <p class="page-header__description">
+                {{ purchase_order.supplier_name_snapshot }}
+                ·
+                {{ purchase_order.get_status_display }}
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_list' %}"
+            >
+                Back to purchase orders
+            </a>
+
+            {% if perms.purchasing.view_supplier %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_detail' purchase_order.supplier_id %}"
+                >
+                    View supplier
+                </a>
+            {% endif %}
+
+            {% if purchase_order.status == "DRAFT" %}
+                {% if perms.purchasing.change_purchaseorder %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:purchase_order_update' purchase_order.pk %}"
+                    >
+                        Edit purchase order
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </header>
+
+    {% if purchase_order.status == "CANCELLED" %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>This purchase order was cancelled.</strong>
+            </p>
+
+            <p>
+                {{ purchase_order.cancellation_reason }}
+            </p>
+        </div>
+    {% endif %}
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Order information</h2>
+
+            <p class="page-header__description">
+                Supplier, delivery, reference and audit
+                information recorded for this order.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    <span class="status-badge">
+                        {{ purchase_order.get_status_display }}
+                    </span>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Purchase-order number</dt>
+                <dd>
+                    {{ purchase_order.purchase_order_number }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier</dt>
+                <dd>
+                    {% if perms.purchasing.view_supplier %}
+                        <a
+                            href="{% url 'purchasing:supplier_detail' purchase_order.supplier_id %}"
+                        >
+                            {{ purchase_order.supplier_name_snapshot }}
+                        </a>
+                    {% else %}
+                        {{ purchase_order.supplier_name_snapshot }}
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier number</dt>
+                <dd>
+                    {{ purchase_order.supplier_number_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier code</dt>
+                <dd>
+                    {{ purchase_order.supplier_code_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier reference</dt>
+                <dd>
+                    {{ purchase_order.supplier_reference|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Currency</dt>
+                <dd>{{ purchase_order.currency }}</dd>
+            </div>
+
+            <div>
+                <dt>Expected delivery</dt>
+                <dd>
+                    {% if purchase_order.expected_delivery_date %}
+                        {{ purchase_order.expected_delivery_date|date:"d M Y" }}
+                    {% else %}
+                        Not scheduled
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Created</dt>
+                <dd>
+                    {{ purchase_order.created_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Created by</dt>
+                <dd>{{ purchase_order.created_by }}</dd>
+            </div>
+
+            <div>
+                <dt>Last updated</dt>
+                <dd>
+                    {{ purchase_order.updated_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Updated by</dt>
+                <dd>
+                    {{ purchase_order.updated_by|default:"Not recorded" }}
+                </dd>
+            </div>
+        </dl>
+
+        {% if purchase_order.notes %}
+            <div class="details-section">
+                <h3>Notes</h3>
+
+                <p>
+                    {{ purchase_order.notes|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Financial summary</h2>
+
+            <p class="page-header__description">
+                Calculated from the products currently
+                included in this purchase order.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Subtotal</dt>
+                <dd>
+                    {{ purchase_order.currency }}
+                    {{ totals.subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Discount percentage</dt>
+                <dd>
+                    {{ purchase_order.discount_percentage|floatformat:2 }}%
+                </dd>
+            </div>
+
+            <div>
+                <dt>Discount amount</dt>
+                <dd>
+                    {{ purchase_order.currency }}
+                    {{ totals.discount_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Tax percentage</dt>
+                <dd>
+                    {{ purchase_order.tax_percentage|floatformat:2 }}%
+                </dd>
+            </div>
+
+            <div>
+                <dt>Tax amount</dt>
+                <dd>
+                    {{ purchase_order.currency }}
+                    {{ totals.tax_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Delivery cost</dt>
+                <dd>
+                    {{ purchase_order.currency }}
+                    {{ purchase_order.delivery_cost|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Total</dt>
+                <dd>
+                    <strong>
+                        {{ purchase_order.currency }}
+                        {{ totals.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Ordered products</h2>
+
+            <p class="page-header__description">
+                Product, quantity and supplier-cost snapshots
+                preserved for this purchase order.
+            </p>
+        </header>
+
+        {% if purchase_order_lines %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Position</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Description</th>
+                            <th scope="col">Unit</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Unit cost</th>
+                            <th scope="col">Line total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in purchase_order_lines %}
+                            <tr>
+                                <td>{{ line.position }}</td>
+
+                                <td>
+                                    <strong>
+                                        {{ line.product_name_snapshot }}
+                                    </strong>
+
+                                    <br>
+
+                                    <span>
+                                        {{ line.product_sku_snapshot }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {{ line.description_snapshot|default:"Not provided" }}
+                                </td>
+
+                                <td>{{ line.unit_snapshot }}</td>
+
+                                <td>
+                                    {{ line.quantity_ordered|floatformat:3 }}
+                                </td>
+
+                                <td>
+                                    {{ purchase_order.currency }}
+                                    {{ line.unit_cost|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ purchase_order.currency }}
+                                        {{ line.line_total|floatformat:2 }}
+                                    </strong>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No products added</h3>
+
+                <p>
+                    This purchase order is still empty.
+                    Product-line management will be available
+                    from this page while the order is a draft.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    {% if purchase_order.submitted_at or purchase_order.approved_at or purchase_order.cancelled_at %}
+        <section class="card">
+            <header class="page-header">
+                <h2>Lifecycle audit</h2>
+
+                <p class="page-header__description">
+                    Submission, approval and cancellation
+                    evidence preserved for this order.
+                </p>
+            </header>
+
+            <dl class="details-grid">
+                {% if purchase_order.submitted_at %}
+                    <div>
+                        <dt>Submitted</dt>
+                        <dd>
+                            {{ purchase_order.submitted_at|date:"d M Y, H:i" }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Submitted by</dt>
+                        <dd>{{ purchase_order.submitted_by }}</dd>
+                    </div>
+                {% endif %}
+
+                {% if purchase_order.approved_at %}
+                    <div>
+                        <dt>Approved</dt>
+                        <dd>
+                            {{ purchase_order.approved_at|date:"d M Y, H:i" }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Approved by</dt>
+                        <dd>{{ purchase_order.approved_by }}</dd>
+                    </div>
+                {% endif %}
+
+                {% if purchase_order.cancelled_at %}
+                    <div>
+                        <dt>Cancelled</dt>
+                        <dd>
+                            {{ purchase_order.cancelled_at|date:"d M Y, H:i" }}
+                        </dd>
+                    </div>
+
+                    <div>
+                        <dt>Cancelled by</dt>
+                        <dd>{{ purchase_order.cancelled_by }}</dd>
+                    </div>
+                {% endif %}
+            </dl>
+        </section>
+    {% endif %}
+{% endblock %}

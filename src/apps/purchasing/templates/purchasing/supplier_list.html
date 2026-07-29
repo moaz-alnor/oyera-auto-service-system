@@ -20,6 +20,15 @@
         </div>
 
         <div class="page-actions">
+            {% if perms.purchasing.view_purchaseorder %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:purchase_order_list' %}"
+                >
+                    Purchase orders
+                </a>
+            {% endif %}
+
             {% if perms.purchasing.view_supplierinvoice %}
                 <a
                     class="button button--secondary"

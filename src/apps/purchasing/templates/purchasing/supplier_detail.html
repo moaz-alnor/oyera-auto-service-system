@@ -210,13 +210,37 @@
     </section>
 
     <section class="card">
-        <header class="page-header">
-            <h2>Recent purchase orders</h2>
+        <header class="page-header page-header--actions">
+            <div>
+                <h2>Recent purchase orders</h2>
 
-            <p class="page-header__description">
-                The ten most recent purchase orders created
-                for this supplier.
-            </p>
+                <p class="page-header__description">
+                    The ten most recent purchase orders created
+                    for this supplier.
+                </p>
+            </div>
+
+            <div class="page-actions">
+                {% if perms.purchasing.view_purchaseorder %}
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:purchase_order_list' %}?supplier={{ supplier.pk }}"
+                    >
+                        View all purchase orders
+                    </a>
+                {% endif %}
+
+                {% if supplier.is_active %}
+                    {% if perms.purchasing.add_purchaseorder %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'purchasing:purchase_order_create' %}?supplier={{ supplier.pk }}"
+                        >
+                            Create purchase order
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
         </header>
 
         {% if purchase_orders %}
@@ -236,7 +260,15 @@
                         {% for purchase_order in purchase_orders %}
                             <tr>
                                 <td>
-                                    {{ purchase_order.purchase_order_number }}
+                                    {% if perms.purchasing.view_purchaseorder %}
+                                        <a
+                                            href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                                        >
+                                            {{ purchase_order.purchase_order_number }}
+                                        </a>
+                                    {% else %}
+                                        {{ purchase_order.purchase_order_number }}
+                                    {% endif %}
                                 </td>
 
                                 <td>
