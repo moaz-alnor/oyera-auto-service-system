@@ -1,0 +1,349 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Supplier invoices | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Accounts payable
+            </p>
+
+            <h1>Supplier invoices</h1>
+
+            <p class="page-header__description">
+                Review supplier invoices, purchase-order
+                references, due dates, payments, and
+                outstanding balances.
+            </p>
+        </div>
+
+        {% if perms.purchasing.add_supplierinvoice %}
+            <a
+                class="button button--primary"
+                href="{% url 'purchasing:supplier_invoice_create' %}"
+            >
+                Record supplier invoice
+            </a>
+        {% endif %}
+    </header>
+
+    <section class="card">
+        <form
+            method="get"
+            class="filter-form"
+        >
+            <div class="form-group">
+                <label for="supplier-invoice-search">
+                    Search
+                </label>
+
+                <input
+                    id="supplier-invoice-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Invoice, supplier reference, purchase order, product, receipt, or payment"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="supplier-invoice-status">
+                    Status
+                </label>
+
+                <select
+                    id="supplier-invoice-status"
+                    class="form-control"
+                    name="status"
+                >
+                    <option value="">
+                        All statuses
+                    </option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_status == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="supplier-filter">
+                    Supplier
+                </label>
+
+                <select
+                    id="supplier-filter"
+                    class="form-control"
+                    name="supplier"
+                >
+                    <option value="">
+                        All suppliers
+                    </option>
+
+                    {% for supplier in suppliers %}
+                        <option
+                            value="{{ supplier.pk }}"
+                            {% if selected_supplier_id == supplier.pk %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ supplier.supplier_number }}
+                            -
+                            {{ supplier.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="purchase-order-filter">
+                    Purchase-order ID
+                </label>
+
+                <input
+                    id="purchase-order-filter"
+                    class="form-control"
+                    type="number"
+                    min="1"
+                    name="purchase_order"
+                    value="{{ selected_purchase_order_id|default_if_none:'' }}"
+                    placeholder="Purchase-order ID"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="overdue-filter">
+                    Due status
+                </label>
+
+                <label
+                    class="checkbox-control"
+                    for="overdue-filter"
+                >
+                    <input
+                        id="overdue-filter"
+                        type="checkbox"
+                        name="overdue"
+                        value="1"
+                        {% if overdue_only %}
+                            checked
+                        {% endif %}
+                    >
+
+                    Show overdue invoices only
+                </label>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply filters
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_invoice_list' %}"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                Invoice
+                            </th>
+
+                            <th scope="col">
+                                Supplier reference
+                            </th>
+
+                            <th scope="col">
+                                Supplier
+                            </th>
+
+                            <th scope="col">
+                                Purchase order
+                            </th>
+
+                            <th scope="col">
+                                Status
+                            </th>
+
+                            <th scope="col">
+                                Invoice date
+                            </th>
+
+                            <th scope="col">
+                                Due date
+                            </th>
+
+                            <th scope="col">
+                                Total
+                            </th>
+
+                            <th scope="col">
+                                Paid
+                            </th>
+
+                            <th scope="col">
+                                Outstanding
+                            </th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for supplier_invoice in page %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'purchasing:supplier_invoice_detail' supplier_invoice.pk %}"
+                                    >
+                                        {{ supplier_invoice.supplier_invoice_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.supplier_reference }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ supplier_invoice.supplier_name_snapshot }}
+                                    </strong>
+
+                                    <br>
+
+                                    <span>
+                                        {{ supplier_invoice.supplier_number_snapshot }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.purchase_order_number_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.get_status_display }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.invoice_date|date:"d M Y" }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.due_date|date:"d M Y" }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.currency }}
+                                    {{ supplier_invoice.total|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.currency }}
+                                    {{ supplier_invoice.paid_amount|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ supplier_invoice.currency }}
+                                        {{ supplier_invoice.outstanding_amount|floatformat:2 }}
+                                    </strong>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.paginator.num_pages > 1 %}
+                <nav
+                    class="pagination"
+                    aria-label="Supplier-invoice pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&supplier={{ selected_supplier_id|default_if_none:'' }}&purchase_order={{ selected_purchase_order_id|default_if_none:'' }}{% if overdue_only %}&overdue=1{% endif %}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }}
+                        of {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&supplier={{ selected_supplier_id|default_if_none:'' }}&purchase_order={{ selected_purchase_order_id|default_if_none:'' }}{% if overdue_only %}&overdue=1{% endif %}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                {% if query or selected_status or selected_supplier_id or selected_purchase_order_id or overdue_only %}
+                    <h2>
+                        No matching supplier invoices
+                    </h2>
+
+                    <p>
+                        No supplier invoices match the
+                        selected search and filter values.
+                    </p>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:supplier_invoice_list' %}"
+                    >
+                        Clear filters
+                    </a>
+                {% else %}
+                    <h2>
+                        No supplier invoices recorded
+                    </h2>
+
+                    <p>
+                        Supplier invoices will appear here
+                        after received goods are matched
+                        against purchase orders.
+                    </p>
+
+                    {% if perms.purchasing.add_supplierinvoice %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'purchasing:supplier_invoice_create' %}"
+                        >
+                            Record supplier invoice
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

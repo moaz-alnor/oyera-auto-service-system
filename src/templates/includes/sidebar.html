@@ -87,6 +87,18 @@
                 Inventory
             </a>
         {% endif %}
+        {% if perms.purchasing.view_supplierinvoice %}
+                    <a
+                        class="sidebar-nav__link
+                            {% if request.resolver_match.app_name == 'purchasing' %}
+                                sidebar-nav__link--active
+                            {% endif %}
+                        "
+                        href="{% url 'purchasing:supplier_invoice_list' %}"
+                    >
+                        Purchasing
+                    </a>
+        {% endif %}
         {% if perms.billing.view_invoice %}
             <a
                 class="sidebar-nav__link
