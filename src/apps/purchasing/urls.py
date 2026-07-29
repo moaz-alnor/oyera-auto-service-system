@@ -58,6 +58,21 @@ urlpatterns = [
         name="purchase_order_update",
     ),
     path(
+        ("purchase-orders/<int:purchase_order_id>/lines/new/"),
+        views.purchase_order_line_add,
+        name="purchase_order_line_add",
+    ),
+    path(
+        ("purchase-order-lines/<int:purchase_order_line_id>/edit/"),
+        views.purchase_order_line_update,
+        name="purchase_order_line_update",
+    ),
+    path(
+        ("purchase-order-lines/<int:purchase_order_line_id>/remove/"),
+        views.purchase_order_line_remove,
+        name="purchase_order_line_remove",
+    ),
+    path(
         "supplier-invoices/",
         views.supplier_invoice_list,
         name="supplier_invoice_list",

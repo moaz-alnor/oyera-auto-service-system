@@ -219,6 +219,21 @@ def get_purchase_order_by_id(
     return purchase_order_list_queryset().get(pk=purchase_order_id)
 
 
+def get_purchase_order_line_by_id(
+    *,
+    purchase_order_line_id: int,
+) -> PurchaseOrderLine:
+    """Return one purchase-order line with its order."""
+
+    return PurchaseOrderLine.objects.select_related(
+        "purchase_order",
+        "purchase_order__supplier",
+        "product",
+        "created_by",
+        "updated_by",
+    ).get(pk=purchase_order_line_id)
+
+
 def get_purchase_orders_for_supplier(
     *,
     supplier_id: int,

@@ -29,6 +29,8 @@ from apps.purchasing.constants import (
 )
 from apps.purchasing.forms import (
     PurchaseOrderCreateForm,
+    PurchaseOrderLineCreateForm,
+    PurchaseOrderLineUpdateForm,
     PurchaseOrderUpdateForm,
     SupplierInvoiceCreateForm,
     SupplierInvoiceLineFormSet,
@@ -42,6 +44,7 @@ from apps.purchasing.forms import (
 from apps.purchasing.models import (
     GoodsReceiptLine,
     PurchaseOrder,
+    PurchaseOrderLine,
     Supplier,
     SupplierInvoice,
     SupplierPayment,
@@ -49,6 +52,7 @@ from apps.purchasing.models import (
 from apps.purchasing.selectors import (
     find_possible_supplier_duplicates,
     get_purchase_order_by_id,
+    get_purchase_order_line_by_id,
     get_purchase_orders_for_supplier,
     get_supplier_by_id,
     get_supplier_invoice_by_id,
@@ -59,10 +63,15 @@ from apps.purchasing.selectors import (
     search_suppliers,
 )
 from apps.purchasing.services.purchase_orders import (
+    AddPurchaseOrderLineCommand,
     CreatePurchaseOrderCommand,
     UpdatePurchaseOrderCommand,
+    UpdatePurchaseOrderLineCommand,
+    add_purchase_order_line,
     create_purchase_order,
+    remove_purchase_order_line,
     update_purchase_order,
+    update_purchase_order_line,
 )
 from apps.purchasing.services.supplier_invoices import (
     CreateSupplierInvoiceCommand,
@@ -683,6 +692,219 @@ def purchase_order_update(
                 "purchasing:purchase_order_detail",
                 args=(purchase_order_id,),
             ),
+        },
+    )
+
+
+def _get_purchase_order_line_or_404(
+    *,
+    purchase_order_line_id: int,
+) -> PurchaseOrderLine:
+    """Return one purchase-order line or HTTP 404."""
+
+    try:
+        return get_purchase_order_line_by_id(
+            purchase_order_line_id=(purchase_order_line_id)
+        )
+    except PurchaseOrderLine.DoesNotExist as exc:
+        raise Http404("Purchase-order line not found.") from exc
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_line_add(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Add one product to a draft purchase order."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderLineCreateForm(
+            request.POST,
+            purchase_order=purchase_order,
+        )
+
+        if form.is_valid():
+            product = form.cleaned_data["product"]
+
+            try:
+                line = add_purchase_order_line(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                    command=(
+                        AddPurchaseOrderLineCommand(
+                            product_id=product.pk,
+                            quantity_ordered=(form.cleaned_data["quantity_ordered"]),
+                            unit_cost=(form.cleaned_data["unit_cost"]),
+                            description_override=(
+                                form.cleaned_data["description_override"]
+                            ),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (f"{line.product_name_snapshot} was added to the purchase order."),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderLineCreateForm(purchase_order=purchase_order)
+
+    return render(
+        request,
+        ("purchasing/purchase_order_line_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "page_title": "Add product",
+            "page_description": (
+                "Select a product and record the supplier quantity and unit cost."
+            ),
+            "submit_label": "Add product",
+            "cancel_url": reverse(
+                "purchasing:purchase_order_detail",
+                args=(purchase_order_id,),
+            ),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_line_update(
+    request: HttpRequest,
+    purchase_order_line_id: int,
+) -> HttpResponse:
+    """Update quantity, cost and description."""
+
+    line = _get_purchase_order_line_or_404(
+        purchase_order_line_id=(purchase_order_line_id)
+    )
+    purchase_order = line.purchase_order
+
+    if request.method == "POST":
+        form = PurchaseOrderLineUpdateForm(request.POST)
+
+        if form.is_valid():
+            try:
+                updated_line = update_purchase_order_line(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_line_id=(purchase_order_line_id),
+                    command=(
+                        UpdatePurchaseOrderLineCommand(
+                            quantity_ordered=(form.cleaned_data["quantity_ordered"]),
+                            unit_cost=(form.cleaned_data["unit_cost"]),
+                            description_override=(
+                                form.cleaned_data["description_override"]
+                            ),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (f"{updated_line.product_name_snapshot} was updated successfully."),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order.pk),
+                )
+    else:
+        form = PurchaseOrderLineUpdateForm(
+            initial={
+                "quantity_ordered": (line.quantity_ordered),
+                "unit_cost": line.unit_cost,
+                "description_override": (line.description_snapshot),
+            }
+        )
+
+    return render(
+        request,
+        ("purchasing/purchase_order_line_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "purchase_order_line": line,
+            "page_title": "Edit product line",
+            "page_description": (
+                "Update the supplier quantity, unit cost or description."
+            ),
+            "submit_label": "Save line changes",
+            "cancel_url": reverse(
+                "purchasing:purchase_order_detail",
+                args=(purchase_order.pk,),
+            ),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_line_remove(
+    request: HttpRequest,
+    purchase_order_line_id: int,
+) -> HttpResponse:
+    """Remove one product from a draft order."""
+
+    line = _get_purchase_order_line_or_404(
+        purchase_order_line_id=(purchase_order_line_id)
+    )
+    purchase_order = line.purchase_order
+
+    if request.method == "POST":
+        product_name = line.product_name_snapshot
+
+        try:
+            remove_purchase_order_line(
+                actor=cast(
+                    User,
+                    request.user,
+                ),
+                purchase_order_line_id=(purchase_order_line_id),
+            )
+        except ValidationError as error:
+            messages.error(
+                request,
+                " ".join(error.messages),
+            )
+        else:
+            messages.success(
+                request,
+                (f"{product_name} was removed from the purchase order."),
+            )
+
+        return redirect(
+            "purchasing:purchase_order_detail",
+            purchase_order_id=(purchase_order.pk),
+        )
+
+    return render(
+        request,
+        ("purchasing/purchase_order_line_remove_form.html"),
+        {
+            "purchase_order": purchase_order,
+            "purchase_order_line": line,
         },
     )
 
