@@ -67,6 +67,36 @@ from apps.product_catalogue.services.catalogue import (
     create_product,
     create_product_category,
 )
+from apps.purchasing.constants import (
+    SupplierPaymentMethod,
+)
+from apps.purchasing.services.purchase_orders import (
+    AddPurchaseOrderLineCommand,
+    CreatePurchaseOrderCommand,
+    add_purchase_order_line,
+    approve_purchase_order,
+    create_purchase_order,
+    submit_purchase_order,
+)
+from apps.purchasing.services.receipts import (
+    GoodsReceiptLineCommand,
+    ReceivePurchaseOrderCommand,
+    receive_purchase_order,
+)
+from apps.purchasing.services.supplier_invoices import (
+    CreateSupplierInvoiceCommand,
+    SupplierInvoiceLineCommand,
+    create_supplier_invoice,
+    post_supplier_invoice,
+)
+from apps.purchasing.services.supplier_payments import (
+    RecordSupplierPaymentCommand,
+    record_supplier_payment,
+)
+from apps.purchasing.services.suppliers import (
+    RegisterSupplierCommand,
+    register_supplier,
+)
 from apps.quotations.constants import CustomerDecisionMethod
 from apps.quotations.services.quotations import (
     AddProductLineCommand,
@@ -555,6 +585,212 @@ class Command(BaseCommand):
                 ),
             )
 
+            # Purchasing and supplier-finance scenarios.
+            supplier = register_supplier(
+                actor=admin,
+                command=RegisterSupplierCommand(
+                    code="DEMO-PARTS",
+                    name="Demo Parts Uganda Ltd",
+                    contact_name="Sarah Nakato",
+                    phone_number="+256700555111",
+                    email="accounts@demoparts.example",
+                    address="Kampala Industrial Area, Uganda",
+                    tax_identifier="TIN-DEMO-001",
+                    payment_terms_days=30,
+                    preferred_currency="UGX",
+                    notes=(
+                        "Reusable supplier for Purchasing "
+                        "and accounts-payable demonstrations."
+                    ),
+                ),
+            )
+
+            purchase_order = create_purchase_order(
+                actor=admin,
+                command=CreatePurchaseOrderCommand(
+                    supplier_id=_require_pk(
+                        supplier.pk,
+                        label="Supplier",
+                    ),
+                    currency="UGX",
+                    expected_delivery_date=(date.today() + timedelta(days=7)),
+                    supplier_reference="DEMO-PO-001",
+                    notes=("Purchase order used for supplier-finance browser testing."),
+                ),
+            )
+
+            purchase_order_line = add_purchase_order_line(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    purchase_order.pk,
+                    label="Purchase order",
+                ),
+                command=AddPurchaseOrderLineCommand(
+                    product_id=_require_pk(
+                        product.pk,
+                        label="Product",
+                    ),
+                    quantity_ordered=Decimal("16.000"),
+                    unit_cost=Decimal("25000.00"),
+                ),
+            )
+
+            submit_purchase_order(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    purchase_order.pk,
+                    label="Purchase order",
+                ),
+            )
+
+            purchase_order = approve_purchase_order(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    purchase_order.pk,
+                    label="Purchase order",
+                ),
+            )
+
+            goods_receipt = receive_purchase_order(
+                actor=admin,
+                command=ReceivePurchaseOrderCommand(
+                    purchase_order_id=_require_pk(
+                        purchase_order.pk,
+                        label="Purchase order",
+                    ),
+                    lines=(
+                        GoodsReceiptLineCommand(
+                            purchase_order_line_id=_require_pk(
+                                purchase_order_line.pk,
+                                label="Purchase-order line",
+                            ),
+                            inventory_item_id=_require_pk(
+                                inventory_item.pk,
+                                label="Inventory item",
+                            ),
+                            quantity_received=Decimal("16.000"),
+                        ),
+                    ),
+                    supplier_delivery_reference=("DEMO-DELIVERY-001"),
+                    notes=(
+                        "Complete supplier delivery for "
+                        "invoice-matching demonstrations."
+                    ),
+                ),
+            )
+
+            goods_receipt_line = goods_receipt.lines.get()
+
+            draft_supplier_invoice = create_supplier_invoice(
+                actor=admin,
+                command=CreateSupplierInvoiceCommand(
+                    purchase_order_id=_require_pk(
+                        purchase_order.pk,
+                        label="Purchase order",
+                    ),
+                    supplier_reference=("DEMO-SINV-DRAFT"),
+                    invoice_date=date.today(),
+                    due_date=(date.today() + timedelta(days=30)),
+                    lines=(
+                        SupplierInvoiceLineCommand(
+                            goods_receipt_line_id=(
+                                _require_pk(
+                                    goods_receipt_line.pk,
+                                    label=("Goods-receipt line"),
+                                )
+                            ),
+                            quantity_invoiced=Decimal("4.000"),
+                            unit_cost=Decimal("25000.00"),
+                        ),
+                    ),
+                    notes=("Draft invoice ready for posting demonstrations."),
+                ),
+            )
+
+            unpaid_supplier_invoice = create_supplier_invoice(
+                actor=admin,
+                command=CreateSupplierInvoiceCommand(
+                    purchase_order_id=_require_pk(
+                        purchase_order.pk,
+                        label="Purchase order",
+                    ),
+                    supplier_reference=("DEMO-SINV-UNPAID"),
+                    invoice_date=date.today(),
+                    due_date=(date.today() + timedelta(days=30)),
+                    lines=(
+                        SupplierInvoiceLineCommand(
+                            goods_receipt_line_id=(
+                                _require_pk(
+                                    goods_receipt_line.pk,
+                                    label=("Goods-receipt line"),
+                                )
+                            ),
+                            quantity_invoiced=Decimal("4.000"),
+                            unit_cost=Decimal("25000.00"),
+                        ),
+                    ),
+                    notes=("Posted unpaid invoice ready for payment or void testing."),
+                ),
+            )
+
+            unpaid_supplier_invoice = post_supplier_invoice(
+                actor=admin,
+                supplier_invoice_id=_require_pk(
+                    unpaid_supplier_invoice.pk,
+                    label=("Unpaid supplier invoice"),
+                ),
+            )
+
+            partial_supplier_invoice = create_supplier_invoice(
+                actor=admin,
+                command=CreateSupplierInvoiceCommand(
+                    purchase_order_id=_require_pk(
+                        purchase_order.pk,
+                        label="Purchase order",
+                    ),
+                    supplier_reference=("DEMO-SINV-PARTIAL"),
+                    invoice_date=date.today(),
+                    due_date=(date.today() + timedelta(days=30)),
+                    lines=(
+                        SupplierInvoiceLineCommand(
+                            goods_receipt_line_id=(
+                                _require_pk(
+                                    goods_receipt_line.pk,
+                                    label=("Goods-receipt line"),
+                                )
+                            ),
+                            quantity_invoiced=Decimal("4.000"),
+                            unit_cost=Decimal("25000.00"),
+                        ),
+                    ),
+                    notes=(
+                        "Partially paid invoice for balance and payment-void testing."
+                    ),
+                ),
+            )
+
+            partial_supplier_invoice = post_supplier_invoice(
+                actor=admin,
+                supplier_invoice_id=_require_pk(
+                    partial_supplier_invoice.pk,
+                    label=("Partial supplier invoice"),
+                ),
+            )
+
+            partial_supplier_payment = record_supplier_payment(
+                actor=cashier,
+                supplier_invoice_id=_require_pk(
+                    partial_supplier_invoice.pk,
+                    label=("Partial supplier invoice"),
+                ),
+                command=RecordSupplierPaymentCommand(
+                    amount=Decimal("40000.00"),
+                    method=(SupplierPaymentMethod.BANK_TRANSFER),
+                    external_reference=("DEMO-SUPPLIER-PAYMENT"),
+                    notes=("Partial payment generated by the demo reset command."),
+                ),
+            )
+
             customer = register_customer(
                 actor=admin,
                 command=RegisterCustomerCommand(
@@ -812,6 +1048,63 @@ class Command(BaseCommand):
             "  Inventory detail:"
             f" /inventory/"
             f"{_require_pk(inventory_item.pk, label='Inventory item')}/"
+        )
+
+        self.stdout.write("  Supplier invoice list: /purchasing/supplier-invoices/")
+
+        self.stdout.write(
+            "  Create supplier invoice:"
+            " /purchasing/supplier-invoices/new/"
+            f"?purchase_order={
+                _require_pk(
+                    purchase_order.pk,
+                    label='Purchase order',
+                )
+            }"
+        )
+
+        self.stdout.write(
+            "  Draft supplier invoice:"
+            f" /purchasing/supplier-invoices/"
+            f"{
+                _require_pk(
+                    draft_supplier_invoice.pk,
+                    label='Draft supplier invoice',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Posted unpaid supplier invoice:"
+            f" /purchasing/supplier-invoices/"
+            f"{
+                _require_pk(
+                    unpaid_supplier_invoice.pk,
+                    label='Unpaid supplier invoice',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Partially paid supplier invoice:"
+            f" /purchasing/supplier-invoices/"
+            f"{
+                _require_pk(
+                    partial_supplier_invoice.pk,
+                    label='Partial supplier invoice',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Void demo supplier payment:"
+            f" /purchasing/supplier-payments/"
+            f"{
+                _require_pk(
+                    partial_supplier_payment.pk,
+                    label='Supplier payment',
+                )
+            }/void/"
         )
 
         self.stdout.write(

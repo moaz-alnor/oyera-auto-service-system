@@ -1,0 +1,520 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ supplier_invoice.supplier_invoice_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Supplier invoice
+            </p>
+
+            <h1>
+                {{ supplier_invoice.supplier_invoice_number }}
+            </h1>
+
+            <p class="page-header__description">
+                Supplier reference
+                <strong>
+                    {{ supplier_invoice.supplier_reference }}
+                </strong>
+                for purchase order
+                <strong>
+                    {{ supplier_invoice.purchase_order_number_snapshot }}
+                </strong>.
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:supplier_invoice_list' %}"
+            >
+                Back to supplier invoices
+            </a>
+
+            {% if supplier_invoice.status == "DRAFT" %}
+                {% if perms.purchasing.post_supplier_invoice %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:supplier_invoice_post' supplier_invoice.pk %}"
+                    >
+                        Post supplier invoice
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if supplier_invoice.status == "POSTED" or supplier_invoice.status == "PARTIALLY_PAID" %}
+                {% if perms.purchasing.record_supplier_payment %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:supplier_payment_record' supplier_invoice.pk %}"
+                    >
+                        Record supplier payment
+                    </a>
+                {% endif %}
+            {% endif %}
+
+            {% if supplier_invoice.status == "POSTED" %}
+                {% if perms.purchasing.void_supplier_invoice %}
+                    <a
+                        class="button button--danger"
+                        href="{% url 'purchasing:supplier_invoice_void' supplier_invoice.pk %}"
+                    >
+                        Void supplier invoice
+                    </a>
+                {% endif %}
+            {% endif %}
+        </div>
+    </header>
+
+    {% if is_overdue %}
+        <div class="message message--error">
+            <p>
+                This supplier invoice is overdue and still
+                has an outstanding balance.
+            </p>
+        </div>
+    {% endif %}
+
+    {% if supplier_invoice.status == "VOIDED" %}
+        <div class="message message--error">
+            <p>
+                <strong>This supplier invoice is voided.</strong>
+            </p>
+
+            {% if supplier_invoice.void_reason %}
+                <p>
+                    {{ supplier_invoice.void_reason }}
+                </p>
+            {% endif %}
+        </div>
+    {% endif %}
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Invoice information</h2>
+
+            <p class="page-header__description">
+                Supplier identity, dates, lifecycle, and
+                purchase-order reference.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    {{ supplier_invoice.get_status_display }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier reference</dt>
+                <dd>
+                    {{ supplier_invoice.supplier_reference }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier</dt>
+                <dd>
+                    {{ supplier_invoice.supplier_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier number</dt>
+                <dd>
+                    {{ supplier_invoice.supplier_number_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Purchase order</dt>
+                <dd>
+                    {{ supplier_invoice.purchase_order_number_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Currency</dt>
+                <dd>{{ supplier_invoice.currency }}</dd>
+            </div>
+
+            <div>
+                <dt>Invoice date</dt>
+                <dd>
+                    {{ supplier_invoice.invoice_date|date:"d M Y" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Due date</dt>
+                <dd>
+                    {{ supplier_invoice.due_date|date:"d M Y" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Created by</dt>
+                <dd>{{ supplier_invoice.created_by }}</dd>
+            </div>
+
+            <div>
+                <dt>Created at</dt>
+                <dd>
+                    {{ supplier_invoice.created_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Posted by</dt>
+                <dd>
+                    {{ supplier_invoice.posted_by|default:"Not posted" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Posted at</dt>
+                <dd>
+                    {% if supplier_invoice.posted_at %}
+                        {{ supplier_invoice.posted_at|date:"d M Y, H:i" }}
+                    {% else %}
+                        Not posted
+                    {% endif %}
+                </dd>
+            </div>
+
+            {% if supplier_invoice.voided_at %}
+                <div>
+                    <dt>Voided by</dt>
+                    <dd>
+                        {{ supplier_invoice.voided_by }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Voided at</dt>
+                    <dd>
+                        {{ supplier_invoice.voided_at|date:"d M Y, H:i" }}
+                    </dd>
+                </div>
+            {% endif %}
+        </dl>
+
+        {% if supplier_invoice.notes %}
+            <div class="details-section">
+                <h3>Invoice notes</h3>
+
+                <p>
+                    {{ supplier_invoice.notes|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+
+        {% if supplier_invoice.void_reason %}
+            <div class="details-section">
+                <h3>Void reason</h3>
+
+                <p>
+                    {{ supplier_invoice.void_reason|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Three-way-match audit</h2>
+
+            <p class="page-header__description">
+                Compare the purchase-order quantity and
+                cost, the received goods, and the supplier
+                invoice line.
+            </p>
+        </header>
+
+        {% if invoice_lines %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Position</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Goods receipt</th>
+                            <th scope="col">Ordered</th>
+                            <th scope="col">Received</th>
+                            <th scope="col">Invoiced</th>
+                            <th scope="col">Order cost</th>
+                            <th scope="col">Received cost</th>
+                            <th scope="col">Invoice cost</th>
+                            <th scope="col">Line total</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for line in invoice_lines %}
+                            <tr>
+                                <td>
+                                    {{ line.purchase_order_line.position }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ line.product_sku_snapshot }}
+                                    </strong>
+
+                                    <br>
+
+                                    {{ line.product_name_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ line.goods_receipt_line.goods_receipt.goods_receipt_number }}
+                                </td>
+
+                                <td>
+                                    {{ line.purchase_order_line.quantity_ordered|floatformat:3 }}
+                                    {{ line.unit_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ line.goods_receipt_line.quantity_received|floatformat:3 }}
+                                    {{ line.unit_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ line.quantity_invoiced|floatformat:3 }}
+                                    {{ line.unit_snapshot }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.currency }}
+                                    {{ line.purchase_order_line.unit_cost|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ line.goods_receipt_line.currency_snapshot }}
+                                    {{ line.goods_receipt_line.unit_cost_snapshot|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ supplier_invoice.currency }}
+                                    {{ line.unit_cost|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ supplier_invoice.currency }}
+                                        {{ line.line_total|floatformat:2 }}
+                                    </strong>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No matched invoice lines</h3>
+
+                <p>
+                    This supplier invoice has no matched
+                    purchase-order and receipt lines.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Financial summary</h2>
+
+            <p class="page-header__description">
+                Invoice charges and the current active
+                supplier-payment balance.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Line subtotal</dt>
+                <dd>
+                    {{ supplier_invoice.currency }}
+                    {{ supplier_invoice.line_subtotal|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Tax</dt>
+                <dd>
+                    {{ supplier_invoice.currency }}
+                    {{ supplier_invoice.tax_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Other charges</dt>
+                <dd>
+                    {{ supplier_invoice.currency }}
+                    {{ supplier_invoice.other_charges|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Invoice total</dt>
+                <dd>
+                    <strong>
+                        {{ supplier_invoice.currency }}
+                        {{ supplier_invoice.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Paid amount</dt>
+                <dd>
+                    {{ supplier_invoice.currency }}
+                    {{ paid_amount|floatformat:2 }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Outstanding balance</dt>
+                <dd>
+                    <strong>
+                        {{ supplier_invoice.currency }}
+                        {{ outstanding_amount|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Supplier-payment history</h2>
+
+            <p class="page-header__description">
+                Posted and voided payments recorded against
+                this supplier invoice.
+            </p>
+        </header>
+
+        {% if payments %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Payment</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Amount</th>
+                            <th scope="col">Method</th>
+                            <th scope="col">Reference</th>
+                            <th scope="col">Paid at</th>
+                            <th scope="col">Recorded by</th>
+                            <th scope="col">Notes</th>
+                            <th scope="col">Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for payment in payments %}
+                            <tr>
+                                <td>
+                                    {{ payment.payment_number }}
+                                </td>
+
+                                <td>
+                                    {{ payment.get_status_display }}
+                                </td>
+
+                                <td>
+                                    {{ payment.currency }}
+                                    {{ payment.amount|floatformat:2 }}
+                                </td>
+
+                                <td>
+                                    {{ payment.get_method_display }}
+                                </td>
+
+                                <td>
+                                    {{ payment.external_reference|default:"—" }}
+                                </td>
+
+                                <td>
+                                    {{ payment.paid_at|date:"d M Y, H:i" }}
+                                </td>
+
+                                <td>
+                                    {{ payment.recorded_by }}
+                                </td>
+
+                                <td>
+                                    {% if payment.status == "VOIDED" %}
+                                        <strong>Void reason:</strong>
+                                        {{ payment.void_reason|default:"—" }}
+                                    {% else %}
+                                        {{ payment.notes|default:"—" }}
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {% if payment.status == "POSTED" %}
+                                        {% if perms.purchasing.void_supplier_payment %}
+                                            <a
+                                                class="button button--danger"
+                                                href="{% url 'purchasing:supplier_payment_void' payment.pk %}"
+                                            >
+                                                Void supplier payment
+                                            </a>
+                                        {% else %}
+                                            —
+                                        {% endif %}
+                                    {% else %}
+                                        —
+                                    {% endif %}
+                                </td>
+                            </tr>
+
+                            {% if payment.status == "VOIDED" %}
+                                <tr>
+                                    <td colspan="9">
+                                        Voided by
+                                        {{ payment.voided_by }}
+                                        on
+                                        {{ payment.voided_at|date:"d M Y, H:i" }}.
+                                    </td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No supplier payments recorded</h3>
+
+                <p>
+                    Supplier payments will appear here after
+                    the invoice is posted and a payment is
+                    recorded.
+                </p>
+
+                {% if supplier_invoice.status == "POSTED" or supplier_invoice.status == "PARTIALLY_PAID" %}
+                    {% if perms.purchasing.record_supplier_payment %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'purchasing:supplier_payment_record' supplier_invoice.pk %}"
+                        >
+                            Record supplier payment
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

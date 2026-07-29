@@ -1,0 +1,444 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Record supplier invoice | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Accounts payable
+            </p>
+
+            <h1>Record supplier invoice</h1>
+
+            <p class="page-header__description">
+                Match the supplier invoice against an
+                approved purchase order and the goods
+                actually received.
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'purchasing:supplier_invoice_list' %}"
+        >
+            Back to supplier invoices
+        </a>
+    </header>
+
+    {% if not selected_purchase_order %}
+        <section class="card">
+            <header class="page-header">
+                <h2>
+                    Choose a received purchase order
+                </h2>
+
+                <p class="page-header__description">
+                    Select a partially or fully received
+                    purchase order before entering the
+                    supplier invoice.
+                </p>
+            </header>
+
+            <form method="get">
+                <div class="form-group">
+                    <label
+                        for="{{ form.purchase_order.id_for_label }}"
+                    >
+                        Purchase order
+                        <span aria-hidden="true">*</span>
+                    </label>
+
+                    {{ form.purchase_order }}
+
+                    {% for error in form.purchase_order.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-actions">
+                    <button
+                        class="button button--primary"
+                        type="submit"
+                    >
+                        Load received lines
+                    </button>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:supplier_invoice_list' %}"
+                    >
+                        Cancel
+                    </a>
+                </div>
+            </form>
+        </section>
+    {% else %}
+        <section class="card">
+            <header class="page-header page-header--actions">
+                <div>
+                    <h2>
+                        Selected purchase order
+                    </h2>
+
+                    <p class="page-header__description">
+                        Confirm the supplier and purchase
+                        order before matching invoice lines.
+                    </p>
+                </div>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_invoice_create' %}"
+                >
+                    Change purchase order
+                </a>
+            </header>
+
+            <dl class="details-grid">
+                <div>
+                    <dt>Purchase order</dt>
+                    <dd>
+                        {{ selected_purchase_order.purchase_order_number }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Supplier</dt>
+                    <dd>
+                        {{ selected_purchase_order.supplier_name_snapshot }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Supplier number</dt>
+                    <dd>
+                        {{ selected_purchase_order.supplier.supplier_number }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Currency</dt>
+                    <dd>
+                        {{ selected_purchase_order.currency }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Order status</dt>
+                    <dd>
+                        {{ selected_purchase_order.get_status_display }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Payment terms</dt>
+                    <dd>
+                        {{ selected_purchase_order.supplier.payment_terms_days }}
+                        day{{ selected_purchase_order.supplier.payment_terms_days|pluralize }}
+                    </dd>
+                </div>
+            </dl>
+        </section>
+
+        <section class="card">
+            <div class="message">
+                <p>
+                    <strong>Three-way match:</strong>
+                    every line must agree with the purchase
+                    order, the posted goods receipt, and the
+                    supplier invoice. The entered quantity
+                    cannot exceed the remaining received
+                    quantity, and the unit cost must match
+                    the received cost.
+                </p>
+            </div>
+        </section>
+
+        <form
+            method="post"
+            id="supplier-invoice-form"
+            novalidate
+        >
+            {% csrf_token %}
+
+            {{ form.purchase_order.as_hidden }}
+
+            {% for error in form.purchase_order.errors %}
+                <div class="message message--error">
+                    <p>{{ error }}</p>
+                </div>
+            {% endfor %}
+
+            {% if form.non_field_errors %}
+                <div class="message message--error">
+                    {% for error in form.non_field_errors %}
+                        <p>{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="card">
+                <header class="page-header">
+                    <h2>Invoice information</h2>
+
+                    <p class="page-header__description">
+                        Enter the identity, dates, and
+                        additional charges printed on the
+                        supplier invoice.
+                    </p>
+                </header>
+
+                {% for field in form %}
+                    {% if field.name != "purchase_order" %}
+                        <div class="form-group">
+                            <label for="{{ field.id_for_label }}">
+                                {{ field.label }}
+
+                                {% if field.field.required %}
+                                    <span aria-hidden="true">
+                                        *
+                                    </span>
+                                {% endif %}
+                            </label>
+
+                            {{ field }}
+
+                            {% if field.help_text %}
+                                <p class="form-help">
+                                    {{ field.help_text }}
+                                </p>
+                            {% endif %}
+
+                            {% for error in field.errors %}
+                                <p class="form-error">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </section>
+
+            <section class="card">
+                <header class="page-header page-header--actions">
+                    <div>
+                        <h2>Received products</h2>
+
+                        <p class="page-header__description">
+                            Match each invoice line to the
+                            corresponding posted goods-receipt
+                            line.
+                        </p>
+                    </div>
+
+                    <button
+                        class="button button--secondary"
+                        type="button"
+                        data-add-supplier-invoice-line
+                    >
+                        Add another line
+                    </button>
+                </header>
+
+                {{ line_formset.management_form }}
+
+                {% if line_formset.non_form_errors %}
+                    <div class="message message--error">
+                        {% for error in line_formset.non_form_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">
+                                    Received product
+                                </th>
+
+                                <th scope="col">
+                                    Invoice quantity
+                                </th>
+
+                                <th scope="col">
+                                    Unit cost
+                                </th>
+
+                                <th scope="col">
+                                    Remove
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody data-supplier-invoice-lines>
+                            {% for line_form in line_formset %}
+                                <tr data-supplier-invoice-line>
+                                    {% for hidden in line_form.hidden_fields %}
+                                        {{ hidden }}
+                                    {% endfor %}
+
+                                    <td>
+                                        {{ line_form.goods_receipt_line }}
+
+                                        {% for error in line_form.goods_receipt_line.errors %}
+                                            <p class="form-error">
+                                                {{ error }}
+                                            </p>
+                                        {% endfor %}
+                                    </td>
+
+                                    <td>
+                                        {{ line_form.quantity_invoiced }}
+
+                                        {% for error in line_form.quantity_invoiced.errors %}
+                                            <p class="form-error">
+                                                {{ error }}
+                                            </p>
+                                        {% endfor %}
+                                    </td>
+
+                                    <td>
+                                        {{ line_form.unit_cost }}
+
+                                        {% for error in line_form.unit_cost.errors %}
+                                            <p class="form-error">
+                                                {{ error }}
+                                            </p>
+                                        {% endfor %}
+                                    </td>
+
+                                    <td>
+                                        <label>
+                                            {{ line_form.DELETE }}
+                                            Remove
+                                        </label>
+                                    </td>
+                                </tr>
+
+                                {% if line_form.non_field_errors %}
+                                    <tr>
+                                        <td colspan="4">
+                                            <div class="message message--error">
+                                                {% for error in line_form.non_field_errors %}
+                                                    <p>{{ error }}</p>
+                                                {% endfor %}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <template id="supplier-invoice-empty-line">
+                    {% with line_form=line_formset.empty_form %}
+                        <tr data-supplier-invoice-line>
+                            {% for hidden in line_form.hidden_fields %}
+                                {{ hidden }}
+                            {% endfor %}
+
+                            <td>
+                                {{ line_form.goods_receipt_line }}
+                            </td>
+
+                            <td>
+                                {{ line_form.quantity_invoiced }}
+                            </td>
+
+                            <td>
+                                {{ line_form.unit_cost }}
+                            </td>
+
+                            <td>
+                                <label>
+                                    {{ line_form.DELETE }}
+                                    Remove
+                                </label>
+                            </td>
+                        </tr>
+                    {% endwith %}
+                </template>
+            </section>
+
+            <section class="card">
+                <div class="form-actions">
+                    <button
+                        class="button button--primary"
+                        type="submit"
+                    >
+                        Create draft supplier invoice
+                    </button>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:supplier_invoice_list' %}"
+                    >
+                        Cancel
+                    </a>
+                </div>
+            </section>
+        </form>
+
+        <script>
+            document.addEventListener(
+                "DOMContentLoaded",
+                () => {
+                    const addButton = document.querySelector(
+                        "[data-add-supplier-invoice-line]"
+                    );
+                    const lineContainer = document.querySelector(
+                        "[data-supplier-invoice-lines]"
+                    );
+                    const emptyLineTemplate =
+                        document.querySelector(
+                            "#supplier-invoice-empty-line"
+                        );
+                    const totalForms = document.querySelector(
+                        "#id_lines-TOTAL_FORMS"
+                    );
+
+                    if (
+                        !addButton
+                        || !lineContainer
+                        || !emptyLineTemplate
+                        || !totalForms
+                    ) {
+                        return;
+                    }
+
+                    addButton.addEventListener(
+                        "click",
+                        () => {
+                            const nextIndex = Number(
+                                totalForms.value
+                            );
+                            const newLine =
+                                emptyLineTemplate.innerHTML
+                                    .replace(
+                                        /__prefix__/g,
+                                        String(nextIndex)
+                                    );
+
+                            lineContainer.insertAdjacentHTML(
+                                "beforeend",
+                                newLine
+                            );
+
+                            totalForms.value = String(
+                                nextIndex + 1
+                            );
+                        }
+                    );
+                }
+            );
+        </script>
+    {% endif %}
+{% endblock %}
