@@ -67,7 +67,9 @@ class GoodsReceiptLineChoiceField(forms.ModelChoiceField):
             f"{obj.product_sku_snapshot} - "
             f"{obj.product_name_snapshot} - "
             f"available {available_quantity:.3f} "
-            f"{obj.unit_snapshot}"
+            f"{obj.unit_snapshot} - "
+            f"cost {obj.currency_snapshot} "
+            f"{obj.unit_cost_snapshot:.2f}"
         )
 
 
