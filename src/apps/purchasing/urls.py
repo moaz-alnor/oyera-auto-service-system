@@ -8,6 +8,36 @@ app_name = "purchasing"
 
 urlpatterns = [
     path(
+        "suppliers/",
+        views.supplier_list,
+        name="supplier_list",
+    ),
+    path(
+        "suppliers/new/",
+        views.supplier_create,
+        name="supplier_create",
+    ),
+    path(
+        "suppliers/<int:supplier_id>/",
+        views.supplier_detail,
+        name="supplier_detail",
+    ),
+    path(
+        "suppliers/<int:supplier_id>/edit/",
+        views.supplier_update,
+        name="supplier_update",
+    ),
+    path(
+        "suppliers/<int:supplier_id>/deactivate/",
+        views.supplier_deactivate,
+        name="supplier_deactivate",
+    ),
+    path(
+        "suppliers/<int:supplier_id>/reactivate/",
+        views.supplier_reactivate,
+        name="supplier_reactivate",
+    ),
+    path(
         "supplier-invoices/",
         views.supplier_invoice_list,
         name="supplier_invoice_list",

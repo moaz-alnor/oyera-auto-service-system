@@ -1,5 +1,4 @@
-# Create your views here.
-"""HTTP views for supplier-finance workflows."""
+"""HTTP views for purchasing workflows."""
 
 from decimal import Decimal
 from typing import cast
@@ -14,7 +13,9 @@ from django.http import (
     HttpResponse,
 )
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import (
     employee_permission_required,
@@ -33,6 +34,8 @@ from apps.purchasing.forms import (
     SupplierInvoiceVoidForm,
     SupplierPaymentRecordForm,
     SupplierPaymentVoidForm,
+    SupplierRegistrationForm,
+    SupplierUpdateForm,
 )
 from apps.purchasing.models import (
     GoodsReceiptLine,
@@ -42,9 +45,14 @@ from apps.purchasing.models import (
     SupplierPayment,
 )
 from apps.purchasing.selectors import (
+    find_possible_supplier_duplicates,
+    get_purchase_orders_for_supplier,
+    get_supplier_by_id,
     get_supplier_invoice_by_id,
+    get_supplier_invoices_for_supplier,
     get_supplier_payment_by_id,
     search_supplier_invoices,
+    search_suppliers,
 )
 from apps.purchasing.services.supplier_invoices import (
     CreateSupplierInvoiceCommand,
@@ -59,6 +67,14 @@ from apps.purchasing.services.supplier_payments import (
     VoidSupplierPaymentCommand,
     record_supplier_payment,
     void_supplier_payment,
+)
+from apps.purchasing.services.suppliers import (
+    RegisterSupplierCommand,
+    UpdateSupplierCommand,
+    deactivate_supplier,
+    reactivate_supplier,
+    register_supplier,
+    update_supplier,
 )
 
 
@@ -86,6 +102,322 @@ def _add_validation_error(
 
     for message in error.messages:
         form.add_error(None, message)
+
+
+def _get_supplier_or_404(
+    *,
+    supplier_id: int,
+) -> Supplier:
+    """Return one supplier or raise HTTP 404."""
+
+    try:
+        return get_supplier_by_id(supplier_id=supplier_id)
+    except Supplier.DoesNotExist as exc:
+        raise Http404("Supplier not found.") from exc
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_SUPPLIER.value)
+def supplier_list(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display searchable supplier records."""
+
+    query = request.GET.get("q", "").strip()
+    include_inactive = request.GET.get("include_inactive") == "1"
+
+    suppliers = search_suppliers(
+        query=query,
+        include_inactive=include_inactive,
+    )
+
+    paginator = Paginator(suppliers, 20)
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "purchasing/supplier_list.html",
+        {
+            "page": page,
+            "suppliers": page.object_list,
+            "query": query,
+            "include_inactive": include_inactive,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.ADD_SUPPLIER.value)
+def supplier_create(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Register a supplier after duplicate review."""
+
+    duplicate_confirmation_required = False
+    possible_duplicates = Supplier.objects.none()
+
+    if request.method == "POST":
+        form = SupplierRegistrationForm(request.POST)
+
+        if form.is_valid():
+            possible_duplicates = find_possible_supplier_duplicates(
+                code=form.cleaned_data["code"],
+                name=form.cleaned_data["name"],
+                phone_number=(form.cleaned_data["phone_number"]),
+                email=form.cleaned_data["email"],
+                tax_identifier=(form.cleaned_data["tax_identifier"]),
+            )
+
+            duplicate_confirmed = form.cleaned_data["confirm_duplicate"]
+
+            if possible_duplicates.exists() and not duplicate_confirmed:
+                duplicate_confirmation_required = True
+            else:
+                try:
+                    supplier = register_supplier(
+                        actor=cast(
+                            User,
+                            request.user,
+                        ),
+                        command=RegisterSupplierCommand(
+                            code=form.cleaned_data["code"],
+                            name=form.cleaned_data["name"],
+                            contact_name=(form.cleaned_data["contact_name"]),
+                            phone_number=(form.cleaned_data["phone_number"]),
+                            email=form.cleaned_data["email"],
+                            address=form.cleaned_data["address"],
+                            tax_identifier=(form.cleaned_data["tax_identifier"]),
+                            payment_terms_days=(
+                                form.cleaned_data["payment_terms_days"]
+                            ),
+                            preferred_currency=(
+                                form.cleaned_data["preferred_currency"]
+                            ),
+                            notes=form.cleaned_data["notes"],
+                        ),
+                    )
+                except ValidationError as error:
+                    _add_validation_error(
+                        form=form,
+                        error=error,
+                    )
+                else:
+                    messages.success(
+                        request,
+                        (
+                            "Supplier "
+                            f"{supplier.supplier_number} "
+                            "was registered successfully."
+                        ),
+                    )
+
+                    return redirect(
+                        ("purchasing:supplier_detail"),
+                        supplier_id=supplier.pk,
+                    )
+    else:
+        form = SupplierRegistrationForm()
+
+    return render(
+        request,
+        "purchasing/supplier_form.html",
+        {
+            "form": form,
+            "page_title": "Register supplier",
+            "page_description": (
+                "Review possible duplicate records before registering a supplier."
+            ),
+            "submit_label": "Register supplier",
+            "cancel_url": reverse("purchasing:supplier_list"),
+            "possible_duplicates": (possible_duplicates),
+            "duplicate_confirmation_required": (duplicate_confirmation_required),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_SUPPLIER.value)
+def supplier_detail(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Display one supplier and related records."""
+
+    supplier = _get_supplier_or_404(supplier_id=supplier_id)
+
+    return render(
+        request,
+        "purchasing/supplier_detail.html",
+        {
+            "supplier": supplier,
+            "purchase_orders": (
+                get_purchase_orders_for_supplier(supplier_id=supplier_id)[:10]
+            ),
+            "supplier_invoices": (
+                get_supplier_invoices_for_supplier(supplier_id=supplier_id)[:10]
+            ),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_SUPPLIER.value)
+def supplier_update(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Update supplier information after duplicate review."""
+
+    supplier = _get_supplier_or_404(supplier_id=supplier_id)
+    duplicate_confirmation_required = False
+    possible_duplicates = Supplier.objects.none()
+
+    if request.method == "POST":
+        form = SupplierUpdateForm(
+            request.POST,
+            instance=supplier,
+        )
+
+        if form.is_valid():
+            possible_duplicates = find_possible_supplier_duplicates(
+                code=form.cleaned_data["code"],
+                name=form.cleaned_data["name"],
+                phone_number=(form.cleaned_data["phone_number"]),
+                email=form.cleaned_data["email"],
+                tax_identifier=(form.cleaned_data["tax_identifier"]),
+                exclude_supplier_id=supplier_id,
+            )
+
+            duplicate_confirmed = form.cleaned_data["confirm_duplicate"]
+
+            if possible_duplicates.exists() and not duplicate_confirmed:
+                duplicate_confirmation_required = True
+            else:
+                try:
+                    updated_supplier = update_supplier(
+                        actor=cast(
+                            User,
+                            request.user,
+                        ),
+                        supplier_id=supplier_id,
+                        command=UpdateSupplierCommand(
+                            code=form.cleaned_data["code"],
+                            name=form.cleaned_data["name"],
+                            contact_name=(form.cleaned_data["contact_name"]),
+                            phone_number=(form.cleaned_data["phone_number"]),
+                            email=form.cleaned_data["email"],
+                            address=form.cleaned_data["address"],
+                            tax_identifier=(form.cleaned_data["tax_identifier"]),
+                            payment_terms_days=(
+                                form.cleaned_data["payment_terms_days"]
+                            ),
+                            preferred_currency=(
+                                form.cleaned_data["preferred_currency"]
+                            ),
+                            notes=form.cleaned_data["notes"],
+                        ),
+                    )
+                except ValidationError as error:
+                    _add_validation_error(
+                        form=form,
+                        error=error,
+                    )
+                else:
+                    messages.success(
+                        request,
+                        (
+                            "Supplier "
+                            f"{updated_supplier.supplier_number} "
+                            "was updated successfully."
+                        ),
+                    )
+
+                    return redirect(
+                        ("purchasing:supplier_detail"),
+                        supplier_id=supplier_id,
+                    )
+    else:
+        form = SupplierUpdateForm(instance=supplier)
+
+    return render(
+        request,
+        "purchasing/supplier_form.html",
+        {
+            "form": form,
+            "supplier": supplier,
+            "page_title": "Edit supplier",
+            "page_description": (
+                "Update the supplier's contact, payment and business information."
+            ),
+            "submit_label": "Save changes",
+            "cancel_url": reverse(
+                "purchasing:supplier_detail",
+                args=(supplier_id,),
+            ),
+            "possible_duplicates": (possible_duplicates),
+            "duplicate_confirmation_required": (duplicate_confirmation_required),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.DEACTIVATE_SUPPLIER.value)
+@require_POST
+def supplier_deactivate(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Deactivate a supplier while preserving history."""
+
+    _get_supplier_or_404(supplier_id=supplier_id)
+
+    try:
+        supplier = deactivate_supplier(
+            actor=cast(
+                User,
+                request.user,
+            ),
+            supplier_id=supplier_id,
+        )
+    except ValidationError as error:
+        messages.error(
+            request,
+            " ".join(error.messages),
+        )
+    else:
+        messages.success(
+            request,
+            (f"Supplier {supplier.supplier_number} was deactivated."),
+        )
+
+    return redirect(
+        "purchasing:supplier_detail",
+        supplier_id=supplier_id,
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.REACTIVATE_SUPPLIER.value)
+@require_POST
+def supplier_reactivate(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Reactivate an inactive supplier."""
+
+    _get_supplier_or_404(supplier_id=supplier_id)
+
+    supplier = reactivate_supplier(
+        actor=cast(
+            User,
+            request.user,
+        ),
+        supplier_id=supplier_id,
+    )
+
+    messages.success(
+        request,
+        (f"Supplier {supplier.supplier_number} was reactivated."),
+    )
+
+    return redirect(
+        "purchasing:supplier_detail",
+        supplier_id=supplier_id,
+    )
 
 
 def _get_supplier_invoice_or_404(
