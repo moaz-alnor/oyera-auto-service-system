@@ -1,4 +1,4 @@
-"""Forms used by supplier-finance browser workflows."""
+"""Forms used by purchasing browser workflows."""
 
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -17,6 +17,7 @@ from django.db.models.functions import Coalesce
 from django.forms import BaseFormSet, formset_factory
 from django.utils import timezone
 
+from apps.product_catalogue.models import Product
 from apps.purchasing.constants import (
     PurchaseOrderStatus,
     SupplierInvoiceStatus,
@@ -144,6 +145,335 @@ class SupplierRegistrationForm(SupplierDetailsForm):
 
 class SupplierUpdateForm(SupplierDetailsForm):
     """Collect replacement supplier information."""
+
+
+class ActiveSupplierChoiceField(forms.ModelChoiceField):
+    """Display active supplier identity."""
+
+    def label_from_instance(
+        self,
+        obj: Supplier,
+    ) -> str:
+        """Return supplier number, code, and name."""
+
+        supplier_number = obj.supplier_number or obj.code
+
+        return f"{supplier_number} - {obj.code} - {obj.name}"
+
+
+class ActiveProductChoiceField(forms.ModelChoiceField):
+    """Display product identity and unit."""
+
+    def label_from_instance(
+        self,
+        obj: Product,
+    ) -> str:
+        """Return SKU, product name, and unit."""
+
+        return f"{obj.sku} - {obj.name} - {obj.unit}"
+
+
+class PurchaseOrderDetailsForm(forms.ModelForm):
+    """Collect a purchase-order header."""
+
+    supplier = ActiveSupplierChoiceField(
+        queryset=Supplier.objects.none(),
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+    currency = forms.CharField(
+        max_length=3,
+        initial="UGX",
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "maxlength": "3",
+                "placeholder": "UGX",
+            }
+        ),
+    )
+    discount_percentage = forms.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        max_value=Decimal("100.00"),
+        initial=Decimal("0.00"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0",
+                "max": "100",
+                "step": "0.01",
+            }
+        ),
+    )
+    tax_percentage = forms.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        max_value=Decimal("100.00"),
+        initial=Decimal("0.00"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0",
+                "max": "100",
+                "step": "0.01",
+            }
+        ),
+    )
+    delivery_cost = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        min_value=Decimal("0.00"),
+        initial=Decimal("0.00"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0",
+                "step": "0.01",
+            }
+        ),
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        """Configure purchase-order header fields."""
+
+        model = PurchaseOrder
+        fields = (
+            "supplier",
+            "currency",
+            "discount_percentage",
+            "tax_percentage",
+            "delivery_cost",
+            "expected_delivery_date",
+            "supplier_reference",
+            "notes",
+        )
+        widgets = {
+            "expected_delivery_date": forms.DateInput(
+                attrs={
+                    "class": "form-control",
+                    "type": "date",
+                }
+            ),
+            "supplier_reference": forms.TextInput(
+                attrs={
+                    "class": "form-control",
+                    "placeholder": ("Supplier quotation or reference"),
+                }
+            ),
+            "notes": forms.Textarea(
+                attrs={
+                    "class": "form-control",
+                    "rows": 4,
+                    "placeholder": ("Optional purchase-order notes"),
+                }
+            ),
+        }
+
+    def __init__(
+        self,
+        *args: Any,
+        **kwargs: Any,
+    ) -> None:
+        """Load suppliers available for ordering."""
+
+        super().__init__(*args, **kwargs)
+
+        supplier_queryset = Supplier.objects.filter(is_active=True).order_by(
+            "name",
+            "supplier_number",
+        )
+
+        supplier_field = self.fields["supplier"]
+
+        if isinstance(
+            supplier_field,
+            forms.ModelChoiceField,
+        ):
+            supplier_field.queryset = supplier_queryset
+
+    def clean_supplier(self) -> Supplier:
+        """Require an active supplier."""
+
+        supplier = self.cleaned_data["supplier"]
+
+        if not supplier.is_active:
+            raise forms.ValidationError(
+                "An inactive supplier cannot receive a purchase order."
+            )
+
+        return supplier
+
+    def clean_currency(self) -> str:
+        """Normalise the purchase-order currency."""
+
+        currency = self.cleaned_data["currency"].strip().upper()
+
+        if len(currency) != 3 or not currency.isalpha():
+            raise forms.ValidationError("Currency must use a three-letter code.")
+
+        return currency
+
+
+class PurchaseOrderCreateForm(PurchaseOrderDetailsForm):
+    """Collect a new draft purchase order."""
+
+
+class PurchaseOrderUpdateForm(PurchaseOrderDetailsForm):
+    """Collect replacement draft-order details."""
+
+
+class PurchaseOrderLineCreateForm(forms.Form):
+    """Collect a product for a draft purchase order."""
+
+    product = ActiveProductChoiceField(
+        queryset=Product.objects.none(),
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+    quantity_ordered = forms.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0.001",
+                "step": "0.001",
+            }
+        ),
+    )
+    unit_cost = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0.01",
+                "step": "0.01",
+            }
+        ),
+    )
+    description_override = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 3,
+                "placeholder": ("Optional purchase description"),
+            }
+        ),
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        purchase_order: PurchaseOrder | None = None,
+        **kwargs: Any,
+    ) -> None:
+        """Load active products not already ordered."""
+
+        super().__init__(*args, **kwargs)
+
+        products = (
+            Product.objects.filter(is_active=True)
+            .select_related("category")
+            .order_by(
+                "name",
+                "sku",
+            )
+        )
+
+        if purchase_order is not None and purchase_order.pk is not None:
+            products = products.exclude(
+                purchase_order_lines__purchase_order=(purchase_order)
+            )
+
+        product_field = self.fields["product"]
+
+        if isinstance(
+            product_field,
+            forms.ModelChoiceField,
+        ):
+            product_field.queryset = products.distinct()
+
+
+class PurchaseOrderLineUpdateForm(forms.Form):
+    """Collect replacement values for an order line."""
+
+    quantity_ordered = forms.DecimalField(
+        max_digits=12,
+        decimal_places=3,
+        min_value=Decimal("0.001"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0.001",
+                "step": "0.001",
+            }
+        ),
+    )
+    unit_cost = forms.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0.01",
+                "step": "0.01",
+            }
+        ),
+    )
+    description_override = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 3,
+            }
+        ),
+    )
+
+
+class PurchaseOrderSubmitForm(forms.Form):
+    """Require confirmation before submission."""
+
+    confirmation = forms.BooleanField(
+        label=("I confirm that the purchase order is complete and ready for approval."),
+    )
+
+
+class PurchaseOrderApprovalForm(forms.Form):
+    """Require confirmation before approval."""
+
+    confirmation = forms.BooleanField(
+        label=("I confirm that I reviewed and approve this purchase order."),
+    )
+
+
+class PurchaseOrderCancellationForm(forms.Form):
+    """Collect purchase-order cancellation evidence."""
+
+    reason = forms.CharField(
+        max_length=500,
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 4,
+                "placeholder": ("Explain why this purchase order is being cancelled"),
+            }
+        ),
+    )
 
 
 class PurchaseOrderChoiceField(forms.ModelChoiceField):
