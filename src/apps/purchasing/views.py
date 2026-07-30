@@ -28,9 +28,12 @@ from apps.purchasing.constants import (
     SupplierPaymentMethod,
 )
 from apps.purchasing.forms import (
+    PurchaseOrderApprovalForm,
+    PurchaseOrderCancellationForm,
     PurchaseOrderCreateForm,
     PurchaseOrderLineCreateForm,
     PurchaseOrderLineUpdateForm,
+    PurchaseOrderSubmitForm,
     PurchaseOrderUpdateForm,
     SupplierInvoiceCreateForm,
     SupplierInvoiceLineFormSet,
@@ -64,12 +67,16 @@ from apps.purchasing.selectors import (
 )
 from apps.purchasing.services.purchase_orders import (
     AddPurchaseOrderLineCommand,
+    CancelPurchaseOrderCommand,
     CreatePurchaseOrderCommand,
     UpdatePurchaseOrderCommand,
     UpdatePurchaseOrderLineCommand,
     add_purchase_order_line,
+    approve_purchase_order,
+    cancel_purchase_order,
     create_purchase_order,
     remove_purchase_order_line,
+    submit_purchase_order,
     update_purchase_order,
     update_purchase_order_line,
 )
@@ -905,6 +912,173 @@ def purchase_order_line_remove(
         {
             "purchase_order": purchase_order,
             "purchase_order_line": line,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.SUBMIT_PURCHASE_ORDER.value)
+def purchase_order_submit(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Submit a completed draft for approval."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderSubmitForm(request.POST)
+
+        if form.is_valid():
+            try:
+                submitted_purchase_order = submit_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{submitted_purchase_order.purchase_order_number} "
+                        "was submitted for approval."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderSubmitForm()
+
+    return render(
+        request,
+        ("purchasing/purchase_order_submit_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.APPROVE_PURCHASE_ORDER.value)
+def purchase_order_approve(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Approve one submitted purchase order."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderApprovalForm(request.POST)
+
+        if form.is_valid():
+            try:
+                approved_purchase_order = approve_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{approved_purchase_order.purchase_order_number} "
+                        "was approved successfully."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderApprovalForm()
+
+    return render(
+        request,
+        ("purchasing/purchase_order_approval_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value)
+def purchase_order_cancel(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Cancel an unreceived purchase order."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderCancellationForm(request.POST)
+
+        if form.is_valid():
+            try:
+                cancelled_purchase_order = cancel_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                    command=(
+                        CancelPurchaseOrderCommand(
+                            reason=(form.cleaned_data["reason"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{cancelled_purchase_order.purchase_order_number} "
+                        "was cancelled."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderCancellationForm()
+
+    return render(
+        request,
+        ("purchasing/purchase_order_cancel_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
         },
     )
 

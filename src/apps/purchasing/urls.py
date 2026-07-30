@@ -73,6 +73,21 @@ urlpatterns = [
         name="purchase_order_line_remove",
     ),
     path(
+        "purchase-orders/<int:purchase_order_id>/submit/",
+        views.purchase_order_submit,
+        name="purchase_order_submit",
+    ),
+    path(
+        "purchase-orders/<int:purchase_order_id>/approve/",
+        views.purchase_order_approve,
+        name="purchase_order_approve",
+    ),
+    path(
+        "purchase-orders/<int:purchase_order_id>/cancel/",
+        views.purchase_order_cancel,
+        name="purchase_order_cancel",
+    ),
+    path(
         "supplier-invoices/",
         views.supplier_invoice_list,
         name="supplier_invoice_list",
