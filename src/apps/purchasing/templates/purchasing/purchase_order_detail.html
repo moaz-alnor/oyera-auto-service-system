@@ -40,10 +40,55 @@
             {% if purchase_order.status == "DRAFT" %}
                 {% if perms.purchasing.change_purchaseorder %}
                     <a
-                        class="button button--primary"
+                        class="button button--secondary"
                         href="{% url 'purchasing:purchase_order_update' purchase_order.pk %}"
                     >
                         Edit purchase order
+                    </a>
+                {% endif %}
+
+                {% if perms.purchasing.submit_purchase_order %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:purchase_order_submit' purchase_order.pk %}"
+                    >
+                        Submit for approval
+                    </a>
+                {% endif %}
+
+                {% if perms.purchasing.cancel_purchase_order %}
+                    <a
+                        class="button button--danger"
+                        href="{% url 'purchasing:purchase_order_cancel' purchase_order.pk %}"
+                    >
+                        Cancel purchase order
+                    </a>
+                {% endif %}
+            {% elif purchase_order.status == "SUBMITTED" %}
+                {% if perms.purchasing.approve_purchase_order %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:purchase_order_approve' purchase_order.pk %}"
+                    >
+                        Approve purchase order
+                    </a>
+                {% endif %}
+
+                {% if perms.purchasing.cancel_purchase_order %}
+                    <a
+                        class="button button--danger"
+                        href="{% url 'purchasing:purchase_order_cancel' purchase_order.pk %}"
+                    >
+                        Cancel purchase order
+                    </a>
+                {% endif %}
+            {% elif purchase_order.status == "APPROVED" %}
+                {% if perms.purchasing.cancel_purchase_order %}
+                    <a
+                        class="button button--danger"
+                        href="{% url 'purchasing:purchase_order_cancel' purchase_order.pk %}"
+                    >
+                        Cancel purchase order
                     </a>
                 {% endif %}
             {% endif %}
