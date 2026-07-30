@@ -1074,7 +1074,7 @@ def purchase_order_cancel(
 
     return render(
         request,
-        ("purchasing/purchase_order_cancel_form.html"),
+        ("purchasing/purchase_order_cancellation_form.html"),
         {
             "form": form,
             "purchase_order": purchase_order,
