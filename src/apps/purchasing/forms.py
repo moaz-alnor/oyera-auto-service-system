@@ -17,6 +17,7 @@ from django.db.models.functions import Coalesce
 from django.forms import BaseFormSet, formset_factory
 from django.utils import timezone
 
+from apps.inventory.models import InventoryItem
 from apps.product_catalogue.models import Product
 from apps.purchasing.constants import (
     PurchaseOrderStatus,
@@ -26,6 +27,7 @@ from apps.purchasing.constants import (
 from apps.purchasing.models import (
     GoodsReceiptLine,
     PurchaseOrder,
+    PurchaseOrderLine,
     Supplier,
     SupplierInvoice,
 )
@@ -474,6 +476,374 @@ class PurchaseOrderCancellationForm(forms.Form):
             }
         ),
     )
+
+
+def _remaining_receipt_quantity(
+    *,
+    purchase_order_line: PurchaseOrderLine,
+) -> Decimal:
+    """Return the quantity still available for receipt."""
+
+    quantity_received = sum(
+        (
+            receipt_line.quantity_received
+            for receipt_line in purchase_order_line.receipt_lines.all()
+        ),
+        Decimal("0.000"),
+    )
+
+    return max(
+        (purchase_order_line.quantity_ordered - quantity_received),
+        Decimal("0.000"),
+    )
+
+
+class InventoryItemChoiceField(forms.ModelChoiceField):
+    """Display product and storage-location identity."""
+
+    def label_from_instance(
+        self,
+        obj: InventoryItem,
+    ) -> str:
+        """Return product and location information."""
+
+        return (
+            f"{obj.product.sku} - "
+            f"{obj.product.name} - "
+            f"{obj.location.code} - "
+            f"{obj.location.name}"
+        )
+
+
+class GoodsReceiptHeaderForm(forms.Form):
+    """Collect supplier-delivery header information."""
+
+    supplier_delivery_reference = forms.CharField(
+        required=False,
+        max_length=120,
+        widget=forms.TextInput(
+            attrs={
+                "class": "form-control",
+                "placeholder": ("Delivery note or supplier reference"),
+            }
+        ),
+    )
+    received_at = forms.DateTimeField(
+        required=False,
+        input_formats=(_DATETIME_LOCAL_FORMAT,),
+        widget=forms.DateTimeInput(
+            format=_DATETIME_LOCAL_FORMAT,
+            attrs={
+                "class": "form-control",
+                "type": "datetime-local",
+            },
+        ),
+        help_text=("Leave blank to use the current date and time."),
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(
+            attrs={
+                "class": "form-control",
+                "rows": 4,
+                "placeholder": (
+                    "Condition, shortages, delivery notes, or other receiving evidence"
+                ),
+            }
+        ),
+    )
+
+    def clean_supplier_delivery_reference(
+        self,
+    ) -> str:
+        """Normalise the delivery reference."""
+
+        return " ".join(
+            self.cleaned_data["supplier_delivery_reference"].strip().split()
+        )
+
+    def clean_received_at(
+        self,
+    ) -> datetime | None:
+        """Reject a receipt time in the future."""
+
+        received_at = self.cleaned_data["received_at"]
+
+        if received_at is not None and received_at > timezone.now():
+            raise forms.ValidationError("The receipt time cannot be in the future.")
+
+        return received_at
+
+    def clean_notes(self) -> str:
+        """Normalise optional receipt notes."""
+
+        return self.cleaned_data["notes"].strip()
+
+
+class GoodsReceiptLineForm(forms.Form):
+    """Collect one delivered purchase-order line."""
+
+    purchase_order_line_id = forms.IntegerField(
+        min_value=1,
+        widget=forms.HiddenInput,
+    )
+    receive = forms.BooleanField(
+        required=False,
+        label="Receive this product",
+    )
+    inventory_item = InventoryItemChoiceField(
+        queryset=InventoryItem.objects.none(),
+        required=False,
+        widget=forms.Select(
+            attrs={
+                "class": "form-control",
+            }
+        ),
+    )
+    quantity_received = forms.DecimalField(
+        required=False,
+        min_value=Decimal("0.001"),
+        max_digits=12,
+        decimal_places=3,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": "0.001",
+                "step": "0.001",
+            }
+        ),
+    )
+
+    def __init__(
+        self,
+        *args: Any,
+        purchase_order_line: (PurchaseOrderLine | None) = None,
+        remaining_quantity: (Decimal | None) = None,
+        **kwargs: Any,
+    ) -> None:
+        """Load inventory targets for one product."""
+
+        super().__init__(*args, **kwargs)
+
+        self.purchase_order_line = purchase_order_line
+        self.remaining_quantity = (
+            remaining_quantity if remaining_quantity is not None else Decimal("0.000")
+        )
+
+        inventory_field = self.fields["inventory_item"]
+
+        if not isinstance(
+            inventory_field,
+            forms.ModelChoiceField,
+        ):
+            return
+
+        if purchase_order_line is None:
+            inventory_field.queryset = InventoryItem.objects.none()
+            return
+
+        inventory_field.queryset = (
+            InventoryItem.objects.filter(
+                product_id=(purchase_order_line.product_id),
+                is_active=True,
+                product__is_active=True,
+                location__is_active=True,
+            )
+            .select_related(
+                "product",
+                "location",
+            )
+            .order_by(
+                "location__name",
+                "location__code",
+                "pk",
+            )
+        )
+
+        self.initial["purchase_order_line_id"] = purchase_order_line.pk
+        self.initial["quantity_received"] = self.remaining_quantity
+
+    def clean(self):
+        """Validate selection and remaining quantity."""
+
+        cleaned_data = super().clean()
+
+        purchase_order_line_id = cleaned_data.get("purchase_order_line_id")
+        selected_for_receipt = cleaned_data.get(
+            "receive",
+            False,
+        )
+        inventory_item = cleaned_data.get("inventory_item")
+        quantity_received = cleaned_data.get("quantity_received")
+
+        if self.purchase_order_line is None:
+            self.add_error(
+                "purchase_order_line_id",
+                "The purchase-order line is unavailable.",
+            )
+            return cleaned_data
+
+        if purchase_order_line_id != self.purchase_order_line.pk:
+            self.add_error(
+                "purchase_order_line_id",
+                ("The submitted purchase-order line does not match this form."),
+            )
+
+        if not selected_for_receipt:
+            return cleaned_data
+
+        if inventory_item is None:
+            self.add_error(
+                "inventory_item",
+                ("Select the inventory location receiving this product."),
+            )
+        elif inventory_item.product_id != self.purchase_order_line.product_id:
+            self.add_error(
+                "inventory_item",
+                ("The inventory product must match the ordered product."),
+            )
+
+        if quantity_received is None:
+            self.add_error(
+                "quantity_received",
+                "Enter the delivered quantity.",
+            )
+        elif quantity_received > self.remaining_quantity:
+            self.add_error(
+                "quantity_received",
+                (
+                    "Received quantity cannot exceed "
+                    f"the remaining "
+                    f"{self.remaining_quantity:.3f}."
+                ),
+            )
+
+        return cleaned_data
+
+
+class BaseGoodsReceiptLineFormSet(BaseFormSet):
+    """Build and validate receivable order lines."""
+
+    def __init__(
+        self,
+        *args: Any,
+        purchase_order: PurchaseOrder,
+        **kwargs: Any,
+    ) -> None:
+        """Load lines that still await delivery."""
+
+        self.purchase_order = purchase_order
+
+        purchase_order_lines = (
+            PurchaseOrderLine.objects.filter(purchase_order=purchase_order)
+            .select_related("product")
+            .prefetch_related("receipt_lines")
+            .order_by(
+                "position",
+                "pk",
+            )
+        )
+
+        self.receivable_lines: list[
+            tuple[
+                PurchaseOrderLine,
+                Decimal,
+            ]
+        ] = []
+
+        for line in purchase_order_lines:
+            remaining_quantity = _remaining_receipt_quantity(purchase_order_line=line)
+
+            if remaining_quantity > Decimal("0.000"):
+                self.receivable_lines.append(
+                    (
+                        line,
+                        remaining_quantity,
+                    )
+                )
+
+        kwargs.setdefault(
+            "initial",
+            [
+                {
+                    "purchase_order_line_id": line.pk,
+                    "quantity_received": remaining,
+                }
+                for line, remaining in self.receivable_lines
+            ],
+        )
+
+        super().__init__(
+            *args,
+            **kwargs,
+        )
+
+    def get_form_kwargs(
+        self,
+        index: int | None,
+    ) -> dict[str, Any]:
+        """Pass the matching order line to each form."""
+
+        kwargs = super().get_form_kwargs(index)
+
+        if index is not None and index < len(self.receivable_lines):
+            (
+                purchase_order_line,
+                remaining_quantity,
+            ) = self.receivable_lines[index]
+
+            kwargs.update(
+                {
+                    "purchase_order_line": (purchase_order_line),
+                    "remaining_quantity": (remaining_quantity),
+                }
+            )
+
+        return kwargs
+
+    def clean(self) -> None:
+        """Require at least one unique delivered line."""
+
+        super().clean()
+
+        if any(self.errors):
+            return
+
+        selected_line_ids: set[int] = set()
+
+        for form in self.forms:
+            cleaned_data = getattr(
+                form,
+                "cleaned_data",
+                {},
+            )
+
+            if not cleaned_data.get("receive"):
+                continue
+
+            purchase_order_line_id = cleaned_data.get("purchase_order_line_id")
+
+            if purchase_order_line_id is None:
+                continue
+
+            if purchase_order_line_id in selected_line_ids:
+                raise forms.ValidationError(
+                    "A purchase-order line cannot appear more than once."
+                )
+
+            selected_line_ids.add(purchase_order_line_id)
+
+        if not selected_line_ids:
+            raise forms.ValidationError("Select at least one delivered product.")
+
+
+GoodsReceiptLineFormSet = formset_factory(
+    GoodsReceiptLineForm,
+    formset=BaseGoodsReceiptLineFormSet,
+    extra=0,
+    max_num=100,
+    validate_max=True,
+)
 
 
 class PurchaseOrderChoiceField(forms.ModelChoiceField):
