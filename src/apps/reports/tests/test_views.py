@@ -77,6 +77,7 @@ def test_manager_sees_all_report_categories(
 
     assert response.status_code == 200
     assert "Customer finance report" in content
+    assert reverse("reports:customer_finance") in content
     assert "Workshop operations report" in content
     assert "Inventory report" in content
     assert "Purchasing report" in content

@@ -11,6 +11,22 @@ from apps.reports.constants import (
     ReportPermissionName,
 )
 from apps.reports.forms import ReportDateRangeForm
+from apps.reports.selectors.customer_finance import (
+    get_customer_finance_report,
+)
+
+
+def _report_form_data(
+    request: HttpRequest,
+):
+    """Return request filters or the default period."""
+
+    if request.GET:
+        return request.GET
+
+    return {
+        "preset": ReportPeriodPreset.THIS_MONTH,
+    }
 
 
 @employee_permission_required(ReportPermissionName.ACCESS_REPORTS.value)
@@ -19,11 +35,7 @@ def report_index(
 ) -> HttpResponse:
     """Display the operational report catalogue."""
 
-    form_data = (
-        request.GET if request.GET else {"preset": (ReportPeriodPreset.THIS_MONTH)}
-    )
-
-    form = ReportDateRangeForm(form_data)
+    form = ReportDateRangeForm(_report_form_data(request))
 
     date_range = form.to_date_range() if form.is_valid() else None
 
@@ -33,5 +45,32 @@ def report_index(
         {
             "form": form,
             "date_range": date_range,
+        },
+    )
+
+
+@employee_permission_required(ReportPermissionName.VIEW_CUSTOMER_FINANCE_REPORT.value)
+def customer_finance_report(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display customer invoice and payment activity."""
+
+    form = ReportDateRangeForm(_report_form_data(request))
+
+    date_range = form.to_date_range() if form.is_valid() else None
+
+    report = (
+        get_customer_finance_report(date_range=date_range)
+        if date_range is not None
+        else None
+    )
+
+    return render(
+        request,
+        "reports/customer_finance.html",
+        {
+            "form": form,
+            "date_range": date_range,
+            "report": report,
         },
     )

@@ -110,9 +110,12 @@
                     overdue receivables.
                 </p>
 
-                <p>
-                    Scheduled for Phase 15B.2.
-                </p>
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:customer_finance' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+                >
+                    Open customer finance report
+                </a>
             </article>
         {% endif %}
 

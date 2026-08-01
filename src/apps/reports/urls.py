@@ -12,4 +12,9 @@ urlpatterns = [
         views.report_index,
         name="index",
     ),
+    path(
+        "customer-finance/",
+        views.customer_finance_report,
+        name="customer_finance",
+    ),
 ]
