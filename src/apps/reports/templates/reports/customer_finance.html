@@ -90,6 +90,15 @@
                 >
                     Reset
                 </a>
+
+                {% if perms.reports.export_reports and date_range %}
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'reports:customer_finance_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% else %}?preset=THIS_MONTH{% endif %}"
+                    >
+                        Export CSV
+                    </a>
+                {% endif %}
             </div>
         </form>
 

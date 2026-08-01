@@ -17,4 +17,9 @@ urlpatterns = [
         views.customer_finance_report,
         name="customer_finance",
     ),
+    path(
+        "customer-finance/export.csv",
+        views.customer_finance_export,
+        name="customer_finance_export",
+    ),
 ]
