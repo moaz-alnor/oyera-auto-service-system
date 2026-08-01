@@ -28,6 +28,8 @@ from apps.purchasing.constants import (
     SupplierPaymentMethod,
 )
 from apps.purchasing.forms import (
+    GoodsReceiptHeaderForm,
+    GoodsReceiptLineFormSet,
     PurchaseOrderApprovalForm,
     PurchaseOrderCancellationForm,
     PurchaseOrderCreateForm,
@@ -45,6 +47,7 @@ from apps.purchasing.forms import (
     SupplierUpdateForm,
 )
 from apps.purchasing.models import (
+    GoodsReceipt,
     GoodsReceiptLine,
     PurchaseOrder,
     PurchaseOrderLine,
@@ -54,6 +57,8 @@ from apps.purchasing.models import (
 )
 from apps.purchasing.selectors import (
     find_possible_supplier_duplicates,
+    get_goods_receipt_by_id,
+    get_goods_receipt_movements,
     get_purchase_order_by_id,
     get_purchase_order_line_by_id,
     get_purchase_orders_for_supplier,
@@ -61,6 +66,7 @@ from apps.purchasing.selectors import (
     get_supplier_invoice_by_id,
     get_supplier_invoices_for_supplier,
     get_supplier_payment_by_id,
+    search_goods_receipts,
     search_purchase_orders,
     search_supplier_invoices,
     search_suppliers,
@@ -79,6 +85,11 @@ from apps.purchasing.services.purchase_orders import (
     submit_purchase_order,
     update_purchase_order,
     update_purchase_order_line,
+)
+from apps.purchasing.services.receipts import (
+    GoodsReceiptLineCommand,
+    ReceivePurchaseOrderCommand,
+    receive_purchase_order,
 )
 from apps.purchasing.services.supplier_invoices import (
     CreateSupplierInvoiceCommand,
@@ -1079,6 +1090,187 @@ def purchase_order_cancel(
             "form": form,
             "purchase_order": purchase_order,
             "totals": purchase_order.totals,
+        },
+    )
+
+
+def _get_goods_receipt_or_404(
+    *,
+    goods_receipt_id: int,
+) -> GoodsReceipt:
+    """Return one goods receipt or HTTP 404."""
+
+    try:
+        return get_goods_receipt_by_id(goods_receipt_id=(goods_receipt_id))
+    except GoodsReceipt.DoesNotExist as exc:
+        raise Http404("Goods receipt not found.") from exc
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_GOODS_RECEIPT.value)
+def goods_receipt_list(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display searchable goods-receipt records."""
+
+    query = request.GET.get("q", "").strip()
+    selected_purchase_order_id = _integer_filter(
+        request.GET.get(
+            "purchase_order",
+            "",
+        )
+    )
+    selected_supplier_id = _integer_filter(request.GET.get("supplier", ""))
+
+    goods_receipts = search_goods_receipts(
+        query=query,
+        purchase_order_id=(selected_purchase_order_id),
+        supplier_id=selected_supplier_id,
+    )
+
+    paginator = Paginator(
+        goods_receipts,
+        20,
+    )
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        ("purchasing/goods_receipt_list.html"),
+        {
+            "page": page,
+            "goods_receipts": page.object_list,
+            "query": query,
+            "selected_purchase_order_id": (selected_purchase_order_id),
+            "selected_supplier_id": (selected_supplier_id),
+            "purchase_orders": (search_purchase_orders()),
+            "suppliers": search_suppliers(include_inactive=True),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value)
+def goods_receipt_create(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Record one supplier delivery into Inventory."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=(purchase_order_id))
+
+    if request.method == "POST":
+        header_form = GoodsReceiptHeaderForm(request.POST)
+        line_formset = GoodsReceiptLineFormSet(
+            request.POST,
+            purchase_order=purchase_order,
+            prefix="lines",
+        )
+
+        if header_form.is_valid() and line_formset.is_valid():
+            receipt_line_commands: list[GoodsReceiptLineCommand] = []
+
+            for line_form in line_formset.forms:
+                line_data = getattr(
+                    line_form,
+                    "cleaned_data",
+                    {},
+                )
+
+                if not line_data.get("receive"):
+                    continue
+
+                purchase_order_line_id = line_data.get("purchase_order_line_id")
+                inventory_item = line_data.get("inventory_item")
+                quantity_received = line_data.get("quantity_received")
+
+                if (
+                    purchase_order_line_id is None
+                    or inventory_item is None
+                    or quantity_received is None
+                ):
+                    continue
+
+                receipt_line_commands.append(
+                    GoodsReceiptLineCommand(
+                        purchase_order_line_id=(purchase_order_line_id),
+                        inventory_item_id=(inventory_item.pk),
+                        quantity_received=(quantity_received),
+                    )
+                )
+
+            try:
+                goods_receipt = receive_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    command=(
+                        ReceivePurchaseOrderCommand(
+                            purchase_order_id=(purchase_order_id),
+                            lines=tuple(receipt_line_commands),
+                            supplier_delivery_reference=(
+                                header_form.cleaned_data["supplier_delivery_reference"]
+                            ),
+                            received_at=(header_form.cleaned_data["received_at"]),
+                            notes=(header_form.cleaned_data["notes"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=header_form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Goods receipt "
+                        f"{goods_receipt.goods_receipt_number} "
+                        "was posted to Inventory."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:goods_receipt_detail",
+                    goods_receipt_id=(goods_receipt.pk),
+                )
+    else:
+        header_form = GoodsReceiptHeaderForm()
+        line_formset = GoodsReceiptLineFormSet(
+            purchase_order=purchase_order,
+            prefix="lines",
+        )
+
+    return render(
+        request,
+        ("purchasing/goods_receipt_form.html"),
+        {
+            "header_form": header_form,
+            "line_formset": line_formset,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_GOODS_RECEIPT.value)
+def goods_receipt_detail(
+    request: HttpRequest,
+    goods_receipt_id: int,
+) -> HttpResponse:
+    """Display one receipt and its inventory audit."""
+
+    goods_receipt = _get_goods_receipt_or_404(goods_receipt_id=(goods_receipt_id))
+
+    return render(
+        request,
+        ("purchasing/goods_receipt_detail.html"),
+        {
+            "goods_receipt": goods_receipt,
+            "goods_receipt_lines": (goods_receipt.lines.all()),
+            "stock_movements": (
+                get_goods_receipt_movements(goods_receipt_id=(goods_receipt_id))
+            ),
         },
     )
 

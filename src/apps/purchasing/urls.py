@@ -88,6 +88,21 @@ urlpatterns = [
         name="purchase_order_cancel",
     ),
     path(
+        "goods-receipts/",
+        views.goods_receipt_list,
+        name="goods_receipt_list",
+    ),
+    path(
+        ("purchase-orders/<int:purchase_order_id>/receipts/new/"),
+        views.goods_receipt_create,
+        name="goods_receipt_create",
+    ),
+    path(
+        "goods-receipts/<int:goods_receipt_id>/",
+        views.goods_receipt_detail,
+        name="goods_receipt_detail",
+    ),
+    path(
         "supplier-invoices/",
         views.supplier_invoice_list,
         name="supplier_invoice_list",
