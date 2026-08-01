@@ -22,12 +22,16 @@
             <span class="app-header__role">
                 {% if request.user.is_superuser %}
                     System administrator
-                {% elif request.user.groups.exists %}
-                    {% for group in request.user.groups.all %}
-                        {{ group.name }}{% if not forloop.last %}, {% endif %}
-                    {% endfor %}
                 {% else %}
-                    Employee
+                    {% with user_groups=request.user.groups.all %}
+                        {% if user_groups %}
+                            {% for group in user_groups %}
+                                {{ group.name }}{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            Employee
+                        {% endif %}
+                    {% endwith %}
                 {% endif %}
             </span>
         </div>

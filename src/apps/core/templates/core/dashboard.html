@@ -4,19 +4,19 @@
     Dashboard | Oyera Auto Service
 {% endblock %}
 
+
 {% block app_content %}
     <header class="page-header">
         <p class="page-header__eyebrow">
             Operations overview
         </p>
 
-        <h1>
-            Dashboard
-        </h1>
+        <h1>Dashboard</h1>
 
         <p class="page-header__description">
-            Welcome, {{ request.user }}. Operational information will
-            appear here as each business module is implemented.
+            Welcome, {{ request.user }}. Review current
+            workshop, billing, Inventory and purchasing
+            activity.
         </p>
     </header>
 
@@ -24,34 +24,493 @@
         class="dashboard-grid"
         aria-label="Operational summary"
     >
-        <article class="metric-card">
-            <span class="metric-card__label">
-                Vehicles received today
-            </span>
+        {% if perms.jobs.view_jobcard %}
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Vehicles received today
+                </span>
 
-            <strong class="metric-card__value">
-                0
-            </strong>
-        </article>
+                <strong class="metric-card__value">
+                    {{ metrics.vehicles_received_today }}
+                </strong>
+            </article>
 
-        <article class="metric-card">
-            <span class="metric-card__label">
-                Open job cards
-            </span>
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Open job cards
+                </span>
 
-            <strong class="metric-card__value">
-                0
-            </strong>
-        </article>
+                <strong class="metric-card__value">
+                    {{ metrics.open_job_cards }}
+                </strong>
+            </article>
+        {% endif %}
 
-        <article class="metric-card">
-            <span class="metric-card__label">
-                Awaiting payment
-            </span>
+        {% if perms.workshop.view_workorder %}
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Active workshop orders
+                </span>
 
-            <strong class="metric-card__value">
-                0
-            </strong>
-        </article>
+                <strong class="metric-card__value">
+                    {{ metrics.active_work_orders }}
+                </strong>
+            </article>
+        {% endif %}
+
+        {% if perms.jobs.view_vehiclerelease %}
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Vehicles ready for release
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ metrics.vehicles_ready_for_release }}
+                </strong>
+            </article>
+        {% endif %}
+
+        {% if perms.billing.view_invoice %}
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Customer invoices awaiting payment
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ metrics.invoices_awaiting_payment }}
+                </strong>
+            </article>
+        {% endif %}
+
+        {% if perms.inventory.view_inventoryitem %}
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Low-stock items
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ metrics.low_stock_items }}
+                </strong>
+            </article>
+        {% endif %}
+
+        {% if perms.purchasing.view_purchaseorder %}
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Purchase orders awaiting approval
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ metrics.purchase_orders_awaiting_approval }}
+                </strong>
+            </article>
+        {% endif %}
+
+        {% if perms.purchasing.view_supplierinvoice %}
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Supplier invoices awaiting payment
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ metrics.supplier_invoices_awaiting_payment }}
+                </strong>
+            </article>
+        {% endif %}
     </section>
+    {% if perms.billing.view_invoice or perms.purchasing.view_supplierinvoice %}
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Financial position
+            </p>
+
+            <h2>Outstanding balances</h2>
+
+            <p class="page-header__description">
+                Current receivables, supplier liabilities
+                and overdue financial records.
+            </p>
+        </header>
+
+        <section
+            class="dashboard-grid"
+            aria-label="Financial summary"
+        >
+            {% if perms.billing.view_invoice %}
+                <article class="metric-card">
+                    <span class="metric-card__label">
+                        Outstanding customer balance
+                    </span>
+
+                    <strong class="metric-card__value">
+                        {{ financial_metrics.currency }}
+                        {{ financial_metrics.customer_outstanding_balance|floatformat:2 }}
+                    </strong>
+
+                    <a
+                        href="{% url 'billing:list' %}"
+                    >
+                        View customer invoices
+                    </a>
+                </article>
+
+                <article class="metric-card">
+                    <span class="metric-card__label">
+                        Overdue customer invoices
+                    </span>
+
+                    <strong class="metric-card__value">
+                        {{ financial_metrics.overdue_customer_invoices }}
+                    </strong>
+
+                    <a
+                        href="{% url 'billing:list' %}"
+                    >
+                        Review overdue invoices
+                    </a>
+                </article>
+            {% endif %}
+
+            {% if perms.purchasing.view_supplierinvoice %}
+                <article class="metric-card">
+                    <span class="metric-card__label">
+                        Outstanding supplier liability
+                    </span>
+
+                    <strong class="metric-card__value">
+                        {{ financial_metrics.currency }}
+                        {{ financial_metrics.supplier_outstanding_liability|floatformat:2 }}
+                    </strong>
+
+                    <a
+                        href="{% url 'purchasing:supplier_invoice_list' %}"
+                    >
+                        View supplier invoices
+                    </a>
+                </article>
+
+                <article class="metric-card">
+                    <span class="metric-card__label">
+                        Overdue supplier invoices
+                    </span>
+
+                    <strong class="metric-card__value">
+                        {{ financial_metrics.overdue_supplier_invoices }}
+                    </strong>
+
+                    <a
+                        href="{% url 'purchasing:supplier_invoice_list' %}?overdue=on"
+                    >
+                        Review supplier liabilities
+                    </a>
+                </article>
+            {% endif %}
+        </section>
+    {% endif %}
+
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Attention required
+        </p>
+
+        <h2>Operational queues</h2>
+
+        <p class="page-header__description">
+            Open the records that currently require an
+            employee decision or follow-up.
+        </p>
+    </header>
+
+    <div class="dashboard-grid">
+        {% if perms.jobs.view_vehiclerelease %}
+            <section class="card">
+                <header class="page-header page-header--actions">
+                    <div>
+                        <h3>Vehicles ready for release</h3>
+
+                        <p class="page-header__description">
+                            Completed workshop jobs awaiting
+                            customer handover.
+                        </p>
+                    </div>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'jobs:list' %}"
+                    >
+                        View jobs
+                    </a>
+                </header>
+
+                {% if alerts.release_ready_jobs %}
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Job</th>
+                                    <th scope="col">Vehicle</th>
+                                    <th scope="col">Customer</th>
+                                    <th scope="col">Action</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for job in alerts.release_ready_jobs %}
+                                    <tr>
+                                        <td>
+                                            <a
+                                                href="{% url 'jobs:detail' job.pk %}"
+                                            >
+                                                {{ job.job_number }}
+                                            </a>
+                                        </td>
+
+                                        <td>
+                                            {{ job.vehicle_registration_snapshot }}
+                                        </td>
+
+                                        <td>
+                                            {{ job.customer_name_snapshot }}
+                                        </td>
+
+                                        <td>
+                                            {% if perms.jobs.release_vehicle %}
+                                                <a
+                                                    href="{% url 'jobs:release_create' job.pk %}"
+                                                >
+                                                    Release
+                                                </a>
+                                            {% else %}
+                                                <a
+                                                    href="{% url 'jobs:detail' job.pk %}"
+                                                >
+                                                    Review
+                                                </a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>
+                            No vehicles are currently awaiting
+                            release.
+                        </p>
+                    </div>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% if perms.inventory.view_inventoryitem %}
+            <section class="card">
+                <header class="page-header page-header--actions">
+                    <div>
+                        <h3>Low-stock Inventory</h3>
+
+                        <p class="page-header__description">
+                            Items at or below their configured
+                            reorder level.
+                        </p>
+                    </div>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'inventory:list' %}?low_stock=on"
+                    >
+                        View Inventory
+                    </a>
+                </header>
+
+                {% if alerts.low_stock_balances %}
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Product</th>
+                                    <th scope="col">Location</th>
+                                    <th scope="col">Available</th>
+                                    <th scope="col">Reorder level</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for balance in alerts.low_stock_balances %}
+                                    <tr>
+                                        <td>
+                                            <a
+                                                href="{% url 'inventory:detail' balance.inventory_item.pk %}"
+                                            >
+                                                {{ balance.inventory_item.product.sku }}
+                                                -
+                                                {{ balance.inventory_item.product.name }}
+                                            </a>
+                                        </td>
+
+                                        <td>
+                                            {{ balance.inventory_item.location.name }}
+                                        </td>
+
+                                        <td>
+                                            {{ balance.available_quantity|floatformat:3 }}
+                                        </td>
+
+                                        <td>
+                                            {{ balance.inventory_item.reorder_level|floatformat:3 }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>
+                            No active Inventory items are at
+                            or below their reorder level.
+                        </p>
+                    </div>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% if perms.purchasing.view_purchaseorder %}
+            <section class="card">
+                <header class="page-header page-header--actions">
+                    <div>
+                        <h3>Purchase approvals</h3>
+
+                        <p class="page-header__description">
+                            Submitted purchase orders awaiting
+                            management approval.
+                        </p>
+                    </div>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:purchase_order_list' %}?status=SUBMITTED"
+                    >
+                        View orders
+                    </a>
+                </header>
+
+                {% if alerts.submitted_purchase_orders %}
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Order</th>
+                                    <th scope="col">Supplier</th>
+                                    <th scope="col">Submitted</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for purchase_order in alerts.submitted_purchase_orders %}
+                                    <tr>
+                                        <td>
+                                            <a
+                                                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                                            >
+                                                {{ purchase_order.purchase_order_number }}
+                                            </a>
+                                        </td>
+
+                                        <td>
+                                            {{ purchase_order.supplier_name_snapshot }}
+                                        </td>
+
+                                        <td>
+                                            {{ purchase_order.submitted_at|date:"d M Y, H:i" }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>
+                            No purchase orders are currently
+                            awaiting approval.
+                        </p>
+                    </div>
+                {% endif %}
+            </section>
+        {% endif %}
+
+        {% if perms.purchasing.view_supplierinvoice %}
+            <section class="card">
+                <header class="page-header page-header--actions">
+                    <div>
+                        <h3>Supplier payments</h3>
+
+                        <p class="page-header__description">
+                            Posted supplier invoices that
+                            remain unpaid or partially paid.
+                        </p>
+                    </div>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:supplier_invoice_list' %}"
+                    >
+                        View invoices
+                    </a>
+                </header>
+
+                {% if alerts.unpaid_supplier_invoices %}
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">Invoice</th>
+                                    <th scope="col">Supplier</th>
+                                    <th scope="col">Due</th>
+                                    <th scope="col">Total</th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for supplier_invoice in alerts.unpaid_supplier_invoices %}
+                                    <tr>
+                                        <td>
+                                            <a
+                                                href="{% url 'purchasing:supplier_invoice_detail' supplier_invoice.pk %}"
+                                            >
+                                                {{ supplier_invoice.supplier_invoice_number }}
+                                            </a>
+                                        </td>
+
+                                        <td>
+                                            {{ supplier_invoice.supplier_name_snapshot }}
+                                        </td>
+
+                                        <td>
+                                            {{ supplier_invoice.due_date|date:"d M Y" }}
+                                        </td>
+
+                                        <td>
+                                            {{ supplier_invoice.currency }}
+                                            {{ supplier_invoice.total|floatformat:2 }}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="empty-state">
+                        <p>
+                            No posted supplier invoices are
+                            currently awaiting payment.
+                        </p>
+                    </div>
+                {% endif %}
+            </section>
+        {% endif %}
+    </div>
+
 {% endblock %}
