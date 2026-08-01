@@ -14,6 +14,9 @@ from apps.purchasing.constants import (
 from apps.quotations.constants import (
     QuotationPermissionName,
 )
+from apps.reports.constants import (
+    ReportPermissionName,
+)
 from apps.service_catalogue.constants import (
     ServicePermissionName,
 )
@@ -26,6 +29,12 @@ ROLE_PERMISSION_POLICY: dict[
 ] = {
     RoleName.ADMINISTRATOR: frozenset(
         {
+            ReportPermissionName.ACCESS_REPORTS.value,
+            ReportPermissionName.VIEW_CUSTOMER_FINANCE_REPORT.value,
+            ReportPermissionName.VIEW_WORKSHOP_REPORT.value,
+            ReportPermissionName.VIEW_INVENTORY_REPORT.value,
+            ReportPermissionName.VIEW_PURCHASING_REPORT.value,
+            ReportPermissionName.EXPORT_REPORTS.value,
             PermissionName.VIEW_USER.value,
             PermissionName.ADD_USER.value,
             PermissionName.CHANGE_USER.value,
@@ -138,6 +147,8 @@ ROLE_PERMISSION_POLICY: dict[
     ),
     RoleName.RECEPTIONIST: frozenset(
         {
+            ReportPermissionName.ACCESS_REPORTS.value,
+            ReportPermissionName.VIEW_WORKSHOP_REPORT.value,
             CustomerPermissionName.VIEW_CUSTOMER.value,
             CustomerPermissionName.ADD_CUSTOMER.value,
             CustomerPermissionName.CHANGE_CUSTOMER.value,
@@ -178,6 +189,8 @@ ROLE_PERMISSION_POLICY: dict[
     ),
     RoleName.SENIOR_TECHNICIAN: frozenset(
         {
+            ReportPermissionName.ACCESS_REPORTS.value,
+            ReportPermissionName.VIEW_WORKSHOP_REPORT.value,
             VehiclePermissionName.VIEW_VEHICLE.value,
             ServicePermissionName.VIEW_SERVICE.value,
             ProductPermissionName.VIEW_PRODUCT_CATEGORY.value,
@@ -248,6 +261,10 @@ ROLE_PERMISSION_POLICY: dict[
     ),
     RoleName.CASHIER: frozenset(
         {
+            ReportPermissionName.ACCESS_REPORTS.value,
+            ReportPermissionName.VIEW_CUSTOMER_FINANCE_REPORT.value,
+            ReportPermissionName.VIEW_PURCHASING_REPORT.value,
+            ReportPermissionName.EXPORT_REPORTS.value,
             CustomerPermissionName.VIEW_CUSTOMER.value,
             CustomerPermissionName.ADD_CUSTOMER.value,
             CustomerPermissionName.CHANGE_CUSTOMER.value,
@@ -279,6 +296,12 @@ ROLE_PERMISSION_POLICY: dict[
     ),
     RoleName.MANAGER: frozenset(
         {
+            ReportPermissionName.ACCESS_REPORTS.value,
+            ReportPermissionName.VIEW_CUSTOMER_FINANCE_REPORT.value,
+            ReportPermissionName.VIEW_WORKSHOP_REPORT.value,
+            ReportPermissionName.VIEW_INVENTORY_REPORT.value,
+            ReportPermissionName.VIEW_PURCHASING_REPORT.value,
+            ReportPermissionName.EXPORT_REPORTS.value,
             CustomerPermissionName.VIEW_CUSTOMER.value,
             VehiclePermissionName.VIEW_VEHICLE.value,
             ServicePermissionName.VIEW_SERVICE.value,

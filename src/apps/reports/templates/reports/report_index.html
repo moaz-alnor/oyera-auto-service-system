@@ -1,0 +1,166 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Reports | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Management information
+        </p>
+
+        <h1>Operational reports</h1>
+
+        <p class="page-header__description">
+            Select a reporting period and open an
+            authorized operational or financial report.
+        </p>
+    </header>
+
+    <section class="card">
+        <form method="get">
+            {{ form.non_field_errors }}
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="{{ form.preset.id_for_label }}">
+                        {{ form.preset.label }}
+                    </label>
+
+                    {{ form.preset }}
+
+                    {% for error in form.preset.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.start_date.id_for_label }}">
+                        {{ form.start_date.label }}
+                    </label>
+
+                    {{ form.start_date }}
+
+                    {% for error in form.start_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.end_date.id_for_label }}">
+                        {{ form.end_date.label }}
+                    </label>
+
+                    {{ form.end_date }}
+
+                    {% for error in form.end_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply reporting period
+                </button>
+            </div>
+        </form>
+
+        {% if date_range %}
+            <p>
+                Selected period:
+                <strong>
+                    {{ date_range.start_date|date:"d M Y" }}
+                    to
+                    {{ date_range.end_date|date:"d M Y" }}
+                </strong>
+                ·
+                {{ date_range.day_count }}
+                day{{ date_range.day_count|pluralize }}
+            </p>
+        {% endif %}
+    </section>
+
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            Report catalogue
+        </p>
+
+        <h2>Available reports</h2>
+    </header>
+
+    <div class="dashboard-grid">
+        {% if perms.reports.view_customer_finance_report %}
+            <article class="card">
+                <h3>Customer finance report</h3>
+
+                <p>
+                    Review invoice totals, customer
+                    payments, outstanding balances and
+                    overdue receivables.
+                </p>
+
+                <p>
+                    Scheduled for Phase 15B.2.
+                </p>
+            </article>
+        {% endif %}
+
+        {% if perms.reports.view_workshop_report %}
+            <article class="card">
+                <h3>Workshop operations report</h3>
+
+                <p>
+                    Review vehicle intake, job-card
+                    activity, workshop progress and
+                    releases.
+                </p>
+
+                <p>
+                    Scheduled for Phase 15B.3.
+                </p>
+            </article>
+        {% endif %}
+
+        {% if perms.reports.view_inventory_report %}
+            <article class="card">
+                <h3>Inventory report</h3>
+
+                <p>
+                    Review stock movement, availability,
+                    reorder conditions and consumption.
+                </p>
+
+                <p>
+                    Scheduled for Phase 15B.4.
+                </p>
+            </article>
+        {% endif %}
+
+        {% if perms.reports.view_purchasing_report %}
+            <article class="card">
+                <h3>Purchasing report</h3>
+
+                <p>
+                    Review purchase orders, goods
+                    receipts, supplier invoices and
+                    liabilities.
+                </p>
+
+                <p>
+                    Scheduled for Phase 15B.4.
+                </p>
+            </article>
+        {% endif %}
+    </div>
+{% endblock %}
