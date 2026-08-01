@@ -74,7 +74,7 @@ def test_dashboard_displays_operational_metrics(
 
     monkeypatch.setattr(
         ("apps.core.views.get_operational_dashboard_metrics"),
-        lambda: metrics,
+        lambda **_kwargs: metrics,
     )
 
     response = client.get(reverse("core:dashboard"))
@@ -193,11 +193,11 @@ def test_dashboard_displays_actionable_links(
 
     monkeypatch.setattr(
         ("apps.core.views.get_operational_dashboard_metrics"),
-        lambda: metrics,
+        lambda **_kwargs: metrics,
     )
     monkeypatch.setattr(
         ("apps.core.views.get_operational_dashboard_alerts"),
-        lambda: alerts,
+        lambda **_kwargs: alerts,
     )
 
     response = client.get(reverse("core:dashboard"))
@@ -332,11 +332,11 @@ def test_dashboard_finance_visibility_follows_role(
 
     monkeypatch.setattr(
         ("apps.core.views.get_operational_dashboard_metrics"),
-        lambda: operational_metrics,
+        lambda **_kwargs: operational_metrics,
     )
     monkeypatch.setattr(
         ("apps.core.views.get_operational_dashboard_alerts"),
-        lambda: alerts,
+        lambda **_kwargs: alerts,
     )
     monkeypatch.setattr(
         ("apps.core.views.get_financial_dashboard_metrics"),
@@ -368,3 +368,26 @@ def test_dashboard_finance_visibility_follows_role(
 
     for label in supplier_labels:
         assert (label in content) is (shows_supplier_finance)
+
+
+@pytest.mark.django_db
+def test_manager_dashboard_query_budget(
+    client,
+    django_assert_num_queries,
+) -> None:
+    """Keep the complete Manager dashboard query-bounded."""
+
+    ensure_default_roles()
+
+    user_model = get_user_model()
+    manager = user_model.objects.create_user(
+        username="dashboard.query.manager",
+        password="Strong-Test-Password-2026",
+    )
+    manager.groups.add(Group.objects.get(name=RoleName.MANAGER.value))
+    client.force_login(manager)
+
+    with django_assert_num_queries(22):
+        response = client.get(reverse("core:dashboard"))
+
+    assert response.status_code == 200

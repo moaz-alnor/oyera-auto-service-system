@@ -8,8 +8,10 @@ from django.db.models import (
     DecimalField,
     ExpressionWrapper,
     F,
+    OuterRef,
     Q,
     QuerySet,
+    Subquery,
     Sum,
     Value,
     When,
@@ -148,15 +150,91 @@ def get_inventory_balance(
     )
 
 
+def _stock_movement_total_subquery() -> QuerySet[StockMovement]:
+    """Return signed stock totals for one outer item."""
+
+    signed_quantity = Case(
+        When(
+            movement_type__in=tuple(StockMovement.POSITIVE_TYPES),
+            then=F("quantity"),
+        ),
+        default=-F("quantity"),
+        output_field=_BALANCE_FIELD,
+    )
+
+    return (
+        StockMovement.objects.filter(inventory_item_id=OuterRef("pk"))
+        .order_by()
+        .values("inventory_item_id")
+        .annotate(total=Sum(signed_quantity))
+        .values("total")[:1]
+    )
+
+
+def _reservation_total_subquery() -> QuerySet[StockReservation]:
+    """Return active reserved stock for one outer item."""
+
+    remaining_quantity = ExpressionWrapper(
+        F("quantity_reserved") - F("quantity_issued") - F("quantity_released"),
+        output_field=_BALANCE_FIELD,
+    )
+
+    return (
+        StockReservation.objects.filter(
+            inventory_item_id=OuterRef("pk"),
+            status__in=(_ACTIVE_RESERVATION_STATUSES),
+        )
+        .order_by()
+        .values("inventory_item_id")
+        .annotate(total=Sum(remaining_quantity))
+        .values("total")[:1]
+    )
+
+
 def get_low_stock_items() -> list[InventoryBalance]:
-    """Return active inventory items at or below reorder level."""
+    """Return low-stock balances using one database query."""
 
-    balances = [
-        get_inventory_balance(inventory_item_id=inventory_item.pk)
-        for inventory_item in get_inventory_items().filter(is_active=True)
+    inventory_items = (
+        get_inventory_items()
+        .filter(is_active=True)
+        .annotate(
+            calculated_on_hand=Coalesce(
+                Subquery(
+                    _stock_movement_total_subquery(),
+                    output_field=_BALANCE_FIELD,
+                ),
+                Value(Decimal("0.000")),
+                output_field=_BALANCE_FIELD,
+            ),
+            calculated_reserved=Coalesce(
+                Subquery(
+                    _reservation_total_subquery(),
+                    output_field=_BALANCE_FIELD,
+                ),
+                Value(Decimal("0.000")),
+                output_field=_BALANCE_FIELD,
+            ),
+        )
+        .annotate(
+            calculated_available=(
+                ExpressionWrapper(
+                    F("calculated_on_hand") - F("calculated_reserved"),
+                    output_field=_BALANCE_FIELD,
+                )
+            )
+        )
+        .filter(calculated_available__lte=(F("reorder_level")))
+    )
+
+    return [
+        InventoryBalance(
+            inventory_item=inventory_item,
+            on_hand_quantity=(inventory_item.calculated_on_hand),
+            reserved_quantity=(inventory_item.calculated_reserved),
+            available_quantity=(inventory_item.calculated_available),
+        )
+        for inventory_item in inventory_items
     ]
-
-    return [balance for balance in balances if balance.is_low_stock]
 
 
 def search_inventory_balances(

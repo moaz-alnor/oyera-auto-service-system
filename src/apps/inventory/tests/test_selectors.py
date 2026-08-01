@@ -50,3 +50,18 @@ def test_low_stock_selector_uses_available_quantity(
     )
 
     assert get_low_stock_items() == []
+
+
+@pytest.mark.django_db
+def test_low_stock_selector_uses_one_query(
+    inventory_context: InventoryTestContext,
+    django_assert_num_queries,
+) -> None:
+    """Calculate all low-stock balances in one query."""
+
+    with django_assert_num_queries(1):
+        balances = get_low_stock_items()
+
+    assert [balance.inventory_item for balance in balances] == [
+        inventory_context.inventory_item
+    ]

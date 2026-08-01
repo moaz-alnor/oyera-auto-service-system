@@ -1,5 +1,6 @@
 """Read-only queries for shared operational dashboards."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
 from decimal import Decimal
@@ -85,7 +86,10 @@ def _current_local_day_bounds() -> tuple[
     return start_at, end_at
 
 
-def get_operational_dashboard_metrics() -> OperationalDashboardMetrics:
+def get_operational_dashboard_metrics(
+    *,
+    low_stock_balances: (Sequence[InventoryBalance] | None) = None,
+) -> OperationalDashboardMetrics:
     """Return live operational metrics for the dashboard."""
 
     start_at, end_at = _current_local_day_bounds()
@@ -115,7 +119,10 @@ def get_operational_dashboard_metrics() -> OperationalDashboardMetrics:
         )
     ).count()
 
-    low_stock_items = len(get_low_stock_items())
+    if low_stock_balances is None:
+        low_stock_balances = get_low_stock_items()
+
+    low_stock_items = len(low_stock_balances)
 
     purchase_orders_awaiting_approval = PurchaseOrder.objects.filter(
         status=PurchaseOrderStatus.SUBMITTED
@@ -159,11 +166,15 @@ class OperationalDashboardAlerts:
 def get_operational_dashboard_alerts(
     *,
     limit: int = 5,
+    low_stock_balances: (Sequence[InventoryBalance] | None) = None,
 ) -> OperationalDashboardAlerts:
     """Return the highest-priority operational records."""
 
     if limit < 1:
         raise ValueError("Dashboard alert limit must be positive.")
+
+    if low_stock_balances is None:
+        low_stock_balances = get_low_stock_items()
 
     release_ready_jobs = tuple(
         JobCard.objects.filter(
@@ -186,7 +197,7 @@ def get_operational_dashboard_alerts(
 
     low_stock_balances = tuple(
         sorted(
-            get_low_stock_items(),
+            low_stock_balances,
             key=lambda balance: (
                 balance.available_quantity,
                 balance.inventory_item.product.name,

@@ -10,6 +10,7 @@ from apps.core.selectors import (
     get_operational_dashboard_alerts,
     get_operational_dashboard_metrics,
 )
+from apps.inventory.selectors import get_low_stock_items
 from apps.purchasing.constants import (
     PurchasingPermissionName,
 )
@@ -26,12 +27,22 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         PurchasingPermissionName.VIEW_SUPPLIER_INVOICE.value
     )
 
+    low_stock_balances = tuple(get_low_stock_items())
+
     return render(
         request,
         "core/dashboard.html",
         {
-            "metrics": (get_operational_dashboard_metrics()),
-            "alerts": (get_operational_dashboard_alerts()),
+            "metrics": (
+                get_operational_dashboard_metrics(
+                    low_stock_balances=(low_stock_balances)
+                )
+            ),
+            "alerts": (
+                get_operational_dashboard_alerts(
+                    low_stock_balances=(low_stock_balances)
+                )
+            ),
             "financial_metrics": (
                 get_financial_dashboard_metrics(
                     include_customer_finance=(can_view_customer_finance),
