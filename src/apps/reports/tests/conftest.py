@@ -3,5 +3,11 @@
 from apps.billing.tests.conftest import (
     billing_context,
 )
+from apps.workshop.tests.conftest import (
+    workshop_execution_context,
+)
 
-__all__ = ("billing_context",)
+__all__ = (
+    "billing_context",
+    "workshop_execution_context",
+)
