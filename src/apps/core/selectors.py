@@ -7,7 +7,10 @@ from django.utils import timezone
 
 from apps.billing.constants import InvoiceStatus
 from apps.billing.models import Invoice
-from apps.inventory.selectors import get_low_stock_items
+from apps.inventory.selectors import (
+    InventoryBalance,
+    get_low_stock_items,
+)
 from apps.jobs.constants import ACTIVE_JOB_STATUSES
 from apps.jobs.models import JobCard
 from apps.purchasing.constants import (
@@ -124,4 +127,95 @@ def get_operational_dashboard_metrics() -> OperationalDashboardMetrics:
         low_stock_items=low_stock_items,
         purchase_orders_awaiting_approval=(purchase_orders_awaiting_approval),
         supplier_invoices_awaiting_payment=(supplier_invoices_awaiting_payment),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class OperationalDashboardAlerts:
+    """Contain records requiring employee attention."""
+
+    release_ready_jobs: tuple[JobCard, ...]
+    low_stock_balances: tuple[InventoryBalance, ...]
+    submitted_purchase_orders: tuple[
+        PurchaseOrder,
+        ...,
+    ]
+    unpaid_supplier_invoices: tuple[
+        SupplierInvoice,
+        ...,
+    ]
+
+
+def get_operational_dashboard_alerts(
+    *,
+    limit: int = 5,
+) -> OperationalDashboardAlerts:
+    """Return the highest-priority operational records."""
+
+    if limit < 1:
+        raise ValueError("Dashboard alert limit must be positive.")
+
+    release_ready_jobs = tuple(
+        JobCard.objects.filter(
+            status__in=ACTIVE_JOB_STATUSES,
+            work_order__status=(WorkOrderStatus.COMPLETED),
+            work_order__invoice__status__in=(_RELEASE_READY_INVOICE_STATUSES),
+            vehicle_release__isnull=True,
+        )
+        .select_related(
+            "customer",
+            "vehicle",
+            "work_order",
+            "work_order__invoice",
+        )
+        .order_by(
+            "-arrival_at",
+            "-pk",
+        )[:limit]
+    )
+
+    low_stock_balances = tuple(
+        sorted(
+            get_low_stock_items(),
+            key=lambda balance: (
+                balance.available_quantity,
+                balance.inventory_item.product.name,
+            ),
+        )[:limit]
+    )
+
+    submitted_purchase_orders = tuple(
+        PurchaseOrder.objects.filter(status=PurchaseOrderStatus.SUBMITTED)
+        .select_related(
+            "supplier",
+            "submitted_by",
+        )
+        .order_by(
+            "submitted_at",
+            "pk",
+        )[:limit]
+    )
+
+    unpaid_supplier_invoices = tuple(
+        SupplierInvoice.objects.filter(
+            status__in=(
+                SupplierInvoiceStatus.POSTED,
+                SupplierInvoiceStatus.PARTIALLY_PAID,
+            )
+        )
+        .select_related(
+            "supplier",
+            "purchase_order",
+        )
+        .order_by(
+            "due_date",
+            "pk",
+        )[:limit]
+    )
+
+    return OperationalDashboardAlerts(
+        release_ready_jobs=release_ready_jobs,
+        low_stock_balances=low_stock_balances,
+        submitted_purchase_orders=(submitted_purchase_orders),
+        unpaid_supplier_invoices=(unpaid_supplier_invoices),
     )

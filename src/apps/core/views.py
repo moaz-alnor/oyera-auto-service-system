@@ -5,6 +5,7 @@ from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
 from apps.core.selectors import (
+    get_operational_dashboard_alerts,
     get_operational_dashboard_metrics,
 )
 
@@ -18,5 +19,6 @@ def dashboard(request: HttpRequest) -> HttpResponse:
         "core/dashboard.html",
         {
             "metrics": (get_operational_dashboard_metrics()),
+            "alerts": (get_operational_dashboard_alerts()),
         },
     )

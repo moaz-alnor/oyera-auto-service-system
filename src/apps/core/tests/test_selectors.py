@@ -1,16 +1,22 @@
 """Tests for operational dashboard selectors."""
 
+from decimal import Decimal
+from types import SimpleNamespace
 from unittest.mock import (
     MagicMock,
     call,
     patch,
 )
 
+import pytest
+
 from apps.billing.constants import InvoiceStatus
 from apps.core.selectors import (
     _ACTIVE_WORK_ORDER_STATUSES,
     _RELEASE_READY_INVOICE_STATUSES,
+    OperationalDashboardAlerts,
     OperationalDashboardMetrics,
+    get_operational_dashboard_alerts,
     get_operational_dashboard_metrics,
 )
 from apps.jobs.constants import ACTIVE_JOB_STATUSES
@@ -161,3 +167,76 @@ def test_dashboard_metrics_are_immutable() -> None:
     assert metrics.low_stock_items == 6
     assert metrics.purchase_orders_awaiting_approval == 7
     assert metrics.supplier_invoices_awaiting_payment == 8
+
+
+def test_dashboard_alerts_return_limited_records() -> None:
+    """Return prioritised records for dashboard queues."""
+
+    release_job = object()
+    purchase_order = object()
+    supplier_invoice = object()
+
+    release_queryset = MagicMock()
+    release_ordered = release_queryset.select_related.return_value.order_by.return_value
+    release_ordered.__getitem__.return_value = [release_job]
+
+    purchase_order_queryset = MagicMock()
+    purchase_order_ordered = (
+        purchase_order_queryset.select_related.return_value.order_by.return_value
+    )
+    purchase_order_ordered.__getitem__.return_value = [purchase_order]
+
+    supplier_invoice_queryset = MagicMock()
+    supplier_invoice_ordered = (
+        supplier_invoice_queryset.select_related.return_value.order_by.return_value
+    )
+    supplier_invoice_ordered.__getitem__.return_value = [supplier_invoice]
+
+    high_balance = SimpleNamespace(
+        available_quantity=Decimal("2.000"),
+        inventory_item=SimpleNamespace(product=SimpleNamespace(name="Oil Filter")),
+    )
+    urgent_balance = SimpleNamespace(
+        available_quantity=Decimal("0.000"),
+        inventory_item=SimpleNamespace(product=SimpleNamespace(name="Brake Pad")),
+    )
+
+    with (
+        patch(
+            "apps.core.selectors.JobCard.objects.filter",
+            return_value=release_queryset,
+        ),
+        patch(
+            "apps.core.selectors.PurchaseOrder.objects.filter",
+            return_value=(purchase_order_queryset),
+        ),
+        patch(
+            "apps.core.selectors.SupplierInvoice.objects.filter",
+            return_value=(supplier_invoice_queryset),
+        ),
+        patch(
+            "apps.core.selectors.get_low_stock_items",
+            return_value=[
+                high_balance,
+                urgent_balance,
+            ],
+        ),
+    ):
+        alerts = get_operational_dashboard_alerts(limit=1)
+
+    assert alerts == OperationalDashboardAlerts(
+        release_ready_jobs=(release_job,),
+        low_stock_balances=(urgent_balance,),
+        submitted_purchase_orders=(purchase_order,),
+        unpaid_supplier_invoices=(supplier_invoice,),
+    )
+
+
+def test_dashboard_alerts_reject_invalid_limit() -> None:
+    """Reject an empty or negative queue limit."""
+
+    with pytest.raises(
+        ValueError,
+        match="must be positive",
+    ):
+        get_operational_dashboard_alerts(limit=0)
