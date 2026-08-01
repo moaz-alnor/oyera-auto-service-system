@@ -2,7 +2,13 @@
 
 import pytest
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from django.urls import reverse
+
+from apps.accounts.constants import RoleName
+from apps.accounts.services.roles import (
+    ensure_default_roles,
+)
 
 
 @pytest.mark.django_db
@@ -48,8 +54,9 @@ def test_dashboard_displays_operational_metrics(
     )
 
     user_model = get_user_model()
-    employee = user_model.objects.create_user(
+    employee = user_model.objects.create_superuser(
         username="dashboard.employee",
+        email="dashboard@example.com",
         password="Strong-Test-Password-2026",
     )
     client.force_login(employee)
@@ -235,3 +242,129 @@ def test_dashboard_displays_actionable_links(
         )
         in content
     )
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    (
+        "role",
+        "shows_customer_finance",
+        "shows_supplier_finance",
+    ),
+    (
+        (RoleName.MANAGER, True, True),
+        (RoleName.CASHIER, True, True),
+        (RoleName.RECEPTIONIST, False, False),
+        (RoleName.TECHNICIAN, False, False),
+    ),
+)
+def test_dashboard_finance_visibility_follows_role(
+    client,
+    monkeypatch,
+    role: RoleName,
+    shows_customer_finance: bool,
+    shows_supplier_finance: bool,
+) -> None:
+    """Show financial information only to authorized roles."""
+
+    from decimal import Decimal
+
+    from apps.core.selectors import (
+        FinancialDashboardMetrics,
+        OperationalDashboardAlerts,
+        OperationalDashboardMetrics,
+    )
+
+    ensure_default_roles()
+
+    user_model = get_user_model()
+    employee = user_model.objects.create_user(
+        username=(f"dashboard.{role.value.casefold()}".replace(" ", ".")),
+        password="Strong-Test-Password-2026",
+    )
+    employee.groups.add(Group.objects.get(name=role.value))
+    client.force_login(employee)
+
+    operational_metrics = OperationalDashboardMetrics(
+        vehicles_received_today=0,
+        open_job_cards=0,
+        active_work_orders=0,
+        vehicles_ready_for_release=0,
+        invoices_awaiting_payment=0,
+        low_stock_items=0,
+        purchase_orders_awaiting_approval=0,
+        supplier_invoices_awaiting_payment=0,
+    )
+
+    alerts = OperationalDashboardAlerts(
+        release_ready_jobs=(),
+        low_stock_balances=(),
+        submitted_purchase_orders=(),
+        unpaid_supplier_invoices=(),
+    )
+
+    financial_metrics = FinancialDashboardMetrics(
+        currency="UGX",
+        customer_outstanding_balance=(Decimal("125000.00")),
+        supplier_outstanding_liability=(Decimal("75000.00")),
+        overdue_customer_invoices=2,
+        overdue_supplier_invoices=1,
+    )
+
+    financial_arguments: dict[str, bool] = {}
+
+    def fake_financial_metrics(
+        *,
+        include_customer_finance: bool,
+        include_supplier_finance: bool,
+        currency: str = "UGX",
+    ) -> FinancialDashboardMetrics:
+        financial_arguments.update(
+            {
+                "include_customer_finance": (include_customer_finance),
+                "include_supplier_finance": (include_supplier_finance),
+            }
+        )
+
+        assert currency == "UGX"
+
+        return financial_metrics
+
+    monkeypatch.setattr(
+        ("apps.core.views.get_operational_dashboard_metrics"),
+        lambda: operational_metrics,
+    )
+    monkeypatch.setattr(
+        ("apps.core.views.get_operational_dashboard_alerts"),
+        lambda: alerts,
+    )
+    monkeypatch.setattr(
+        ("apps.core.views.get_financial_dashboard_metrics"),
+        fake_financial_metrics,
+    )
+
+    response = client.get(reverse("core:dashboard"))
+
+    content = response.content.decode()
+
+    assert response.status_code == 200
+
+    assert financial_arguments == {
+        "include_customer_finance": (shows_customer_finance),
+        "include_supplier_finance": (shows_supplier_finance),
+    }
+
+    customer_labels = (
+        "Outstanding customer balance",
+        "Overdue customer invoices",
+    )
+    supplier_labels = (
+        "Outstanding supplier liability",
+        "Overdue supplier invoices",
+    )
+
+    for label in customer_labels:
+        assert (label in content) is (shows_customer_finance)
+
+    for label in supplier_labels:
+        assert (label in content) is (shows_supplier_finance)

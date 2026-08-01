@@ -10,12 +10,16 @@ from unittest.mock import (
 
 import pytest
 
-from apps.billing.constants import InvoiceStatus
+from apps.billing.constants import (
+    InvoiceStatus,
+)
 from apps.core.selectors import (
     _ACTIVE_WORK_ORDER_STATUSES,
     _RELEASE_READY_INVOICE_STATUSES,
+    FinancialDashboardMetrics,
     OperationalDashboardAlerts,
     OperationalDashboardMetrics,
+    get_financial_dashboard_metrics,
     get_operational_dashboard_alerts,
     get_operational_dashboard_metrics,
 )
@@ -240,3 +244,97 @@ def test_dashboard_alerts_reject_invalid_limit() -> None:
         match="must be positive",
     ):
         get_operational_dashboard_alerts(limit=0)
+
+
+def test_financial_dashboard_metrics_calculate_balances() -> None:
+    """Calculate posted-payment balances and overdue counts."""
+
+    customer_invoices = MagicMock()
+    customer_invoices.aggregate.return_value = {"amount": Decimal("1000.00")}
+    customer_invoices.filter.return_value.count.return_value = 2
+
+    customer_payments = MagicMock()
+    customer_payments.aggregate.return_value = {"amount": Decimal("300.00")}
+
+    supplier_invoices = MagicMock()
+    supplier_invoices.aggregate.return_value = {"amount": Decimal("800.00")}
+    supplier_invoices.filter.return_value.count.return_value = 1
+
+    supplier_payments = MagicMock()
+    supplier_payments.aggregate.return_value = {"amount": Decimal("200.00")}
+
+    with (
+        patch(
+            "apps.core.selectors.Invoice.objects.filter",
+            return_value=customer_invoices,
+        ),
+        patch(
+            "apps.core.selectors.Payment.objects.filter",
+            return_value=customer_payments,
+        ),
+        patch(
+            "apps.core.selectors.SupplierInvoice.objects.filter",
+            return_value=supplier_invoices,
+        ),
+        patch(
+            "apps.core.selectors.SupplierPayment.objects.filter",
+            return_value=supplier_payments,
+        ),
+    ):
+        metrics = get_financial_dashboard_metrics(
+            include_customer_finance=True,
+            include_supplier_finance=True,
+            currency="ugx",
+        )
+
+    assert metrics == FinancialDashboardMetrics(
+        currency="UGX",
+        customer_outstanding_balance=(Decimal("700.00")),
+        supplier_outstanding_liability=(Decimal("600.00")),
+        overdue_customer_invoices=2,
+        overdue_supplier_invoices=1,
+    )
+
+
+def test_financial_dashboard_skips_unauthorized_queries() -> None:
+    """Do not query financial records without permission."""
+
+    with (
+        patch("apps.core.selectors.Invoice.objects.filter") as customer_query,
+        patch("apps.core.selectors.Payment.objects.filter") as customer_payment_query,
+        patch("apps.core.selectors.SupplierInvoice.objects.filter") as supplier_query,
+        patch(
+            "apps.core.selectors.SupplierPayment.objects.filter"
+        ) as supplier_payment_query,
+    ):
+        metrics = get_financial_dashboard_metrics(
+            include_customer_finance=False,
+            include_supplier_finance=False,
+        )
+
+    assert metrics == FinancialDashboardMetrics(
+        currency="UGX",
+        customer_outstanding_balance=(Decimal("0.00")),
+        supplier_outstanding_liability=(Decimal("0.00")),
+        overdue_customer_invoices=0,
+        overdue_supplier_invoices=0,
+    )
+
+    customer_query.assert_not_called()
+    customer_payment_query.assert_not_called()
+    supplier_query.assert_not_called()
+    supplier_payment_query.assert_not_called()
+
+
+def test_financial_dashboard_rejects_invalid_currency() -> None:
+    """Require a valid three-letter currency code."""
+
+    with pytest.raises(
+        ValueError,
+        match="three-letter code",
+    ):
+        get_financial_dashboard_metrics(
+            include_customer_finance=True,
+            include_supplier_finance=True,
+            currency="UGXA",
+        )

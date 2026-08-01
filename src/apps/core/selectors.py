@@ -2,11 +2,19 @@
 
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
+from decimal import Decimal
 
+from django.db.models import Sum
 from django.utils import timezone
 
-from apps.billing.constants import InvoiceStatus
-from apps.billing.models import Invoice
+from apps.billing.constants import (
+    InvoiceStatus,
+    PaymentStatus,
+)
+from apps.billing.models import (
+    Invoice,
+    Payment,
+)
 from apps.inventory.selectors import (
     InventoryBalance,
     get_low_stock_items,
@@ -16,10 +24,12 @@ from apps.jobs.models import JobCard
 from apps.purchasing.constants import (
     PurchaseOrderStatus,
     SupplierInvoiceStatus,
+    SupplierPaymentStatus,
 )
 from apps.purchasing.models import (
     PurchaseOrder,
     SupplierInvoice,
+    SupplierPayment,
 )
 from apps.workshop.constants import WorkOrderStatus
 from apps.workshop.models import WorkOrder
@@ -218,4 +228,110 @@ def get_operational_dashboard_alerts(
         low_stock_balances=low_stock_balances,
         submitted_purchase_orders=(submitted_purchase_orders),
         unpaid_supplier_invoices=(unpaid_supplier_invoices),
+    )
+
+
+_DASHBOARD_CURRENCY = "UGX"
+
+_OPEN_CUSTOMER_INVOICE_STATUSES = (
+    InvoiceStatus.ISSUED,
+    InvoiceStatus.PARTIALLY_PAID,
+)
+
+_OPEN_SUPPLIER_INVOICE_STATUSES = (
+    SupplierInvoiceStatus.POSTED,
+    SupplierInvoiceStatus.PARTIALLY_PAID,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class FinancialDashboardMetrics:
+    """Contain permission-aware financial dashboard values."""
+
+    currency: str
+    customer_outstanding_balance: Decimal
+    supplier_outstanding_liability: Decimal
+    overdue_customer_invoices: int
+    overdue_supplier_invoices: int
+
+
+def get_financial_dashboard_metrics(
+    *,
+    include_customer_finance: bool,
+    include_supplier_finance: bool,
+    currency: str = _DASHBOARD_CURRENCY,
+) -> FinancialDashboardMetrics:
+    """Return authorized customer and supplier balances."""
+
+    normalized_currency = currency.strip().upper()
+
+    if len(normalized_currency) != 3 or not normalized_currency.isalpha():
+        raise ValueError("Dashboard currency must be a three-letter code.")
+
+    zero = Decimal("0.00")
+    today = timezone.localdate()
+
+    customer_outstanding_balance = zero
+    supplier_outstanding_liability = zero
+    overdue_customer_invoices = 0
+    overdue_supplier_invoices = 0
+
+    if include_customer_finance:
+        customer_invoices = Invoice.objects.filter(
+            status__in=(_OPEN_CUSTOMER_INVOICE_STATUSES),
+            currency=normalized_currency,
+        )
+
+        customer_invoice_total = (
+            customer_invoices.aggregate(amount=Sum("total"))["amount"] or zero
+        )
+
+        customer_payment_total = (
+            Payment.objects.filter(
+                status=PaymentStatus.POSTED,
+                invoice__status__in=(_OPEN_CUSTOMER_INVOICE_STATUSES),
+                invoice__currency=(normalized_currency),
+            ).aggregate(amount=Sum("amount"))["amount"]
+            or zero
+        )
+
+        customer_outstanding_balance = max(
+            customer_invoice_total - customer_payment_total,
+            zero,
+        )
+
+        overdue_customer_invoices = customer_invoices.filter(due_date__lt=today).count()
+
+    if include_supplier_finance:
+        supplier_invoices = SupplierInvoice.objects.filter(
+            status__in=(_OPEN_SUPPLIER_INVOICE_STATUSES),
+            currency=normalized_currency,
+        )
+
+        supplier_invoice_total = (
+            supplier_invoices.aggregate(amount=Sum("total"))["amount"] or zero
+        )
+
+        supplier_payment_total = (
+            SupplierPayment.objects.filter(
+                status=SupplierPaymentStatus.POSTED,
+                supplier_invoice__status__in=(_OPEN_SUPPLIER_INVOICE_STATUSES),
+                supplier_invoice__currency=(normalized_currency),
+            ).aggregate(amount=Sum("amount"))["amount"]
+            or zero
+        )
+
+        supplier_outstanding_liability = max(
+            supplier_invoice_total - supplier_payment_total,
+            zero,
+        )
+
+        overdue_supplier_invoices = supplier_invoices.filter(due_date__lt=today).count()
+
+    return FinancialDashboardMetrics(
+        currency=normalized_currency,
+        customer_outstanding_balance=(customer_outstanding_balance),
+        supplier_outstanding_liability=(supplier_outstanding_liability),
+        overdue_customer_invoices=(overdue_customer_invoices),
+        overdue_supplier_invoices=(overdue_supplier_invoices),
     )
