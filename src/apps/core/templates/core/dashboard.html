@@ -13,9 +13,9 @@
         <h1>Dashboard</h1>
 
         <p class="page-header__description">
-            Welcome, {{ request.user }}. Review today's
-            vehicle intake, active jobs and customer
-            invoices awaiting payment.
+            Welcome, {{ request.user }}. Review current
+            workshop, billing, Inventory and purchasing
+            activity.
         </p>
     </header>
 
@@ -45,11 +45,61 @@
 
         <article class="metric-card">
             <span class="metric-card__label">
-                Awaiting payment
+                Active workshop orders
+            </span>
+
+            <strong class="metric-card__value">
+                {{ metrics.active_work_orders }}
+            </strong>
+        </article>
+
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Vehicles ready for release
+            </span>
+
+            <strong class="metric-card__value">
+                {{ metrics.vehicles_ready_for_release }}
+            </strong>
+        </article>
+
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Customer invoices awaiting payment
             </span>
 
             <strong class="metric-card__value">
                 {{ metrics.invoices_awaiting_payment }}
+            </strong>
+        </article>
+
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Low-stock items
+            </span>
+
+            <strong class="metric-card__value">
+                {{ metrics.low_stock_items }}
+            </strong>
+        </article>
+
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Purchase orders awaiting approval
+            </span>
+
+            <strong class="metric-card__value">
+                {{ metrics.purchase_orders_awaiting_approval }}
+            </strong>
+        </article>
+
+        <article class="metric-card">
+            <span class="metric-card__label">
+                Supplier invoices awaiting payment
+            </span>
+
+            <strong class="metric-card__value">
+                {{ metrics.supplier_invoices_awaiting_payment }}
             </strong>
         </article>
     </section>
