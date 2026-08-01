@@ -37,6 +37,17 @@
                 </a>
             {% endif %}
 
+            {% if purchase_order.status == "APPROVED" or purchase_order.status == "PARTIALLY_RECEIVED" %}
+                {% if perms.purchasing.receive_purchase_order %}
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:goods_receipt_create' purchase_order.pk %}"
+                    >
+                        Receive delivery
+                    </a>
+                {% endif %}
+            {% endif %}
+
             {% if purchase_order.status == "DRAFT" %}
                 {% if perms.purchasing.change_purchaseorder %}
                     <a
@@ -422,6 +433,100 @@
                             href="{% url 'purchasing:purchase_order_line_add' purchase_order.pk %}"
                         >
                             Add first product
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header page-header--actions">
+            <div>
+                <h2>Goods receipts</h2>
+
+                <p class="page-header__description">
+                    Supplier deliveries and Inventory receipts
+                    recorded against this purchase order.
+                </p>
+            </div>
+
+            {% if perms.purchasing.view_goodsreceipt %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:goods_receipt_list' %}?purchase_order={{ purchase_order.pk }}"
+                >
+                    View all receipts
+                </a>
+            {% endif %}
+        </header>
+
+        {% if goods_receipts %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Receipt</th>
+                            <th scope="col">
+                                Delivery reference
+                            </th>
+                            <th scope="col">Products</th>
+                            <th scope="col">Received</th>
+                            <th scope="col">Received by</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for goods_receipt in goods_receipts %}
+                            <tr>
+                                <td>
+                                    {% if perms.purchasing.view_goodsreceipt %}
+                                        <a
+                                            href="{% url 'purchasing:goods_receipt_detail' goods_receipt.pk %}"
+                                        >
+                                            {{ goods_receipt.goods_receipt_number }}
+                                        </a>
+                                    {% else %}
+                                        {{ goods_receipt.goods_receipt_number }}
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ goods_receipt.supplier_delivery_reference|default:"Not provided" }}
+                                </td>
+
+                                <td>
+                                    {{ goods_receipt.lines.all|length }}
+                                </td>
+
+                                <td>
+                                    {{ goods_receipt.received_at|date:"d M Y, H:i" }}
+                                </td>
+
+                                <td>
+                                    {{ goods_receipt.received_by }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No supplier deliveries recorded</h3>
+
+                <p>
+                    No goods receipts have been posted against
+                    this purchase order.
+                </p>
+
+                {% if purchase_order.status == "APPROVED" or purchase_order.status == "PARTIALLY_RECEIVED" %}
+                    {% if perms.purchasing.receive_purchase_order %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'purchasing:goods_receipt_create' purchase_order.pk %}"
+                        >
+                            Receive first delivery
                         </a>
                     {% endif %}
                 {% endif %}

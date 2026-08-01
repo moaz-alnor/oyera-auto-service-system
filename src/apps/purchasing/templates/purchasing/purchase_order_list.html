@@ -30,6 +30,15 @@
                 </a>
             {% endif %}
 
+            {% if perms.purchasing.view_goodsreceipt %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:goods_receipt_list' %}"
+                >
+                    Goods receipts
+                </a>
+            {% endif %}
+
             {% if perms.purchasing.view_supplierinvoice %}
                 <a
                     class="button button--secondary"

@@ -59,6 +59,7 @@ from apps.purchasing.selectors import (
     find_possible_supplier_duplicates,
     get_goods_receipt_by_id,
     get_goods_receipt_movements,
+    get_goods_receipts_for_purchase_order,
     get_purchase_order_by_id,
     get_purchase_order_line_by_id,
     get_purchase_orders_for_supplier,
@@ -624,6 +625,11 @@ def purchase_order_detail(
         {
             "purchase_order": purchase_order,
             "purchase_order_lines": (purchase_order.lines.all()),
+            "goods_receipts": (
+                get_goods_receipts_for_purchase_order(
+                    purchase_order_id=(purchase_order_id)
+                )
+            ),
             "totals": purchase_order.totals,
         },
     )
