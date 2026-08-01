@@ -1,0 +1,304 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    {{ goods_receipt.goods_receipt_number }} | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ goods_receipt.goods_receipt_number }}
+            </p>
+
+            <h1>Goods receipt</h1>
+
+            <p class="page-header__description">
+                Supplier delivery and Inventory movement audit.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:goods_receipt_list' %}"
+            >
+                Back to goods receipts
+            </a>
+
+            {% if perms.purchasing.view_purchaseorder %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'purchasing:purchase_order_detail' goods_receipt.purchase_order_id %}"
+                >
+                    View purchase order
+                </a>
+            {% endif %}
+
+            {% if perms.purchasing.view_supplier %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_detail' goods_receipt.purchase_order.supplier_id %}"
+                >
+                    View supplier
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Receipt information</h2>
+
+            <p class="page-header__description">
+                The supplier and receiving evidence preserved
+                when this delivery was posted.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Receipt number</dt>
+                <dd>
+                    {{ goods_receipt.goods_receipt_number }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Purchase order</dt>
+                <dd>
+                    {% if perms.purchasing.view_purchaseorder %}
+                        <a
+                            href="{% url 'purchasing:purchase_order_detail' goods_receipt.purchase_order_id %}"
+                        >
+                            {{ goods_receipt.purchase_order_number_snapshot }}
+                        </a>
+                    {% else %}
+                        {{ goods_receipt.purchase_order_number_snapshot }}
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier</dt>
+                <dd>
+                    {{ goods_receipt.supplier_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier number</dt>
+                <dd>
+                    {{ goods_receipt.supplier_number_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Delivery reference</dt>
+                <dd>
+                    {{ goods_receipt.supplier_delivery_reference|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Received at</dt>
+                <dd>
+                    {{ goods_receipt.received_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Received by</dt>
+                <dd>
+                    {{ goods_receipt.received_by }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Recorded</dt>
+                <dd>
+                    {{ goods_receipt.created_at|date:"d M Y, H:i" }}
+                </dd>
+            </div>
+        </dl>
+
+        {% if goods_receipt.notes %}
+            <div class="details-section">
+                <h3>Receiving notes</h3>
+
+                <p>
+                    {{ goods_receipt.notes|linebreaksbr }}
+                </p>
+            </div>
+        {% endif %}
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Received products</h2>
+
+            <p class="page-header__description">
+                Product, quantity, supplier cost and Inventory
+                destination snapshots for this delivery.
+            </p>
+        </header>
+
+        <div class="table-wrapper">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th scope="col">Product</th>
+                        <th scope="col">Unit</th>
+                        <th scope="col">
+                            Quantity received
+                        </th>
+                        <th scope="col">Unit cost</th>
+                        <th scope="col">
+                            Inventory location
+                        </th>
+                        <th scope="col">
+                            Stock movement
+                        </th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {% for line in goods_receipt_lines %}
+                        <tr>
+                            <td>
+                                <strong>
+                                    {{ line.product_name_snapshot }}
+                                </strong>
+
+                                <br>
+
+                                <span>
+                                    {{ line.product_sku_snapshot }}
+                                </span>
+                            </td>
+
+                            <td>
+                                {{ line.unit_snapshot }}
+                            </td>
+
+                            <td>
+                                {{ line.quantity_received|floatformat:3 }}
+                            </td>
+
+                            <td>
+                                {{ line.currency_snapshot }}
+                                {{ line.unit_cost_snapshot|floatformat:2 }}
+                            </td>
+
+                            <td>
+                                {% if perms.inventory.view_inventoryitem %}
+                                    <a
+                                        href="{% url 'inventory:detail' line.inventory_item_id %}"
+                                    >
+                                        {{ line.inventory_item.location.code }}
+                                        -
+                                        {{ line.inventory_item.location.name }}
+                                    </a>
+                                {% else %}
+                                    {{ line.inventory_item.location.code }}
+                                    -
+                                    {{ line.inventory_item.location.name }}
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {{ line.stock_movement.movement_number }}
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Inventory movement audit</h2>
+
+            <p class="page-header__description">
+                Inventory receipt movements created by this
+                supplier delivery.
+            </p>
+        </header>
+
+        {% if stock_movements %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">Movement</th>
+                            <th scope="col">Type</th>
+                            <th scope="col">Product</th>
+                            <th scope="col">Location</th>
+                            <th scope="col">Quantity</th>
+                            <th scope="col">Occurred</th>
+                            <th scope="col">Created by</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for movement in stock_movements %}
+                            <tr>
+                                <td>
+                                    {{ movement.movement_number }}
+                                </td>
+
+                                <td>
+                                    {{ movement.get_movement_type_display }}
+                                </td>
+
+                                <td>
+                                    {{ movement.inventory_item.product.sku }}
+                                    -
+                                    {{ movement.inventory_item.product.name }}
+                                </td>
+
+                                <td>
+                                    {% if perms.inventory.view_inventoryitem %}
+                                        <a
+                                            href="{% url 'inventory:detail' movement.inventory_item_id %}"
+                                        >
+                                            {{ movement.inventory_item.location.code }}
+                                            -
+                                            {{ movement.inventory_item.location.name }}
+                                        </a>
+                                    {% else %}
+                                        {{ movement.inventory_item.location.code }}
+                                        -
+                                        {{ movement.inventory_item.location.name }}
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ movement.quantity|floatformat:3 }}
+                                </td>
+
+                                <td>
+                                    {{ movement.occurred_at|date:"d M Y, H:i" }}
+                                </td>
+
+                                <td>
+                                    {{ movement.created_by }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <h3>No Inventory movements found</h3>
+
+                <p>
+                    No linked Inventory receipt movements
+                    could be loaded for this goods receipt.
+                </p>
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

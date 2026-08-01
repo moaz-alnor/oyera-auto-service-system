@@ -1,0 +1,173 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Submit purchase order | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ purchase_order.purchase_order_number }}
+            </p>
+
+            <h1>Submit purchase order</h1>
+
+            <p class="page-header__description">
+                Review the supplier, products and total before
+                sending this purchase order for approval.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Back to purchase order
+            </a>
+        </div>
+    </header>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Submission summary</h2>
+
+            <p class="page-header__description">
+                Submission locks the draft header and product
+                lines until the order is approved or cancelled.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    {{ purchase_order.get_status_display }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier</dt>
+                <dd>
+                    {{ purchase_order.supplier_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier reference</dt>
+                <dd>
+                    {{ purchase_order.supplier_reference|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Products</dt>
+                <dd>
+                    {{ purchase_order.lines.all|length }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Expected delivery</dt>
+                <dd>
+                    {% if purchase_order.expected_delivery_date %}
+                        {{ purchase_order.expected_delivery_date|date:"d M Y" }}
+                    {% else %}
+                        Not scheduled
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Total</dt>
+                <dd>
+                    <strong>
+                        {{ purchase_order.currency }}
+                        {{ totals.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    {% if purchase_order.status != "DRAFT" %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>
+                    This purchase order cannot be submitted.
+                </strong>
+            </p>
+
+            <p>
+                Only a draft purchase order can be submitted
+                for approval.
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Return to purchase order
+            </a>
+        </div>
+    {% else %}
+        <section class="card">
+            {% if form.non_field_errors %}
+                <div
+                    class="alert alert--error"
+                    role="alert"
+                >
+                    {% for error in form.non_field_errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form
+                class="form"
+                method="post"
+                novalidate
+            >
+                {% csrf_token %}
+
+                <div class="checkbox-field">
+                    {{ form.confirmation }}
+
+                    <label for="{{ form.confirmation.id_for_label }}">
+                        {{ form.confirmation.label }}
+                    </label>
+                </div>
+
+                {% for error in form.confirmation.errors %}
+                    <p class="form-error">
+                        {{ error }}
+                    </p>
+                {% endfor %}
+
+                <div class="form-actions">
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                    >
+                        Cancel
+                    </a>
+
+                    <button
+                        class="button button--primary"
+                        type="submit"
+                    >
+                        Submit for approval
+                    </button>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}

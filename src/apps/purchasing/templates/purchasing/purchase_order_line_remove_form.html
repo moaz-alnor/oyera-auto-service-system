@@ -1,0 +1,152 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Remove product | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header">
+        <p class="page-header__eyebrow">
+            {{ purchase_order.purchase_order_number }}
+        </p>
+
+        <h1>Remove product</h1>
+
+        <p class="page-header__description">
+            Review the product-line information before
+            removing it from the purchase order.
+        </p>
+    </header>
+
+    {% if purchase_order.status != "DRAFT" %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>
+                    This product can no longer be removed.
+                </strong>
+            </p>
+
+            <p>
+                Only draft purchase orders allow product-line
+                removal.
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Back to purchase order
+            </a>
+        </div>
+    {% else %}
+        <section class="card">
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                <p>
+                    <strong>
+                        This action removes the product from
+                        the draft purchase order.
+                    </strong>
+                </p>
+
+                <p>
+                    The product can be added again later while
+                    the order remains a draft.
+                </p>
+            </div>
+
+            <dl class="details-grid">
+                <div>
+                    <dt>Position</dt>
+                    <dd>
+                        {{ purchase_order_line.position }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>SKU</dt>
+                    <dd>
+                        {{ purchase_order_line.product_sku_snapshot }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Product</dt>
+                    <dd>
+                        {{ purchase_order_line.product_name_snapshot }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Unit</dt>
+                    <dd>
+                        {{ purchase_order_line.unit_snapshot }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Quantity</dt>
+                    <dd>
+                        {{ purchase_order_line.quantity_ordered|floatformat:3 }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Unit cost</dt>
+                    <dd>
+                        {{ purchase_order.currency }}
+                        {{ purchase_order_line.unit_cost|floatformat:2 }}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt>Line total</dt>
+                    <dd>
+                        <strong>
+                            {{ purchase_order.currency }}
+                            {{ purchase_order_line.line_total|floatformat:2 }}
+                        </strong>
+                    </dd>
+                </div>
+            </dl>
+
+            {% if purchase_order_line.description_snapshot %}
+                <div class="details-section">
+                    <h2>Description</h2>
+
+                    <p>
+                        {{ purchase_order_line.description_snapshot|linebreaksbr }}
+                    </p>
+                </div>
+            {% endif %}
+
+            <form
+                method="post"
+                class="form-actions"
+            >
+                {% csrf_token %}
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                >
+                    Keep product
+                </a>
+
+                <button
+                    class="button button--danger"
+                    type="submit"
+                >
+                    Remove product
+                </button>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}

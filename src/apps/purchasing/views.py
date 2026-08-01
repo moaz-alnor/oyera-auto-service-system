@@ -1,5 +1,4 @@
-# Create your views here.
-"""HTTP views for supplier-finance workflows."""
+"""HTTP views for purchasing workflows."""
 
 from decimal import Decimal
 from typing import cast
@@ -14,7 +13,9 @@ from django.http import (
     HttpResponse,
 )
 from django.shortcuts import redirect, render
+from django.urls import reverse
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from apps.accounts.decorators import (
     employee_permission_required,
@@ -27,24 +28,69 @@ from apps.purchasing.constants import (
     SupplierPaymentMethod,
 )
 from apps.purchasing.forms import (
+    GoodsReceiptHeaderForm,
+    GoodsReceiptLineFormSet,
+    PurchaseOrderApprovalForm,
+    PurchaseOrderCancellationForm,
+    PurchaseOrderCreateForm,
+    PurchaseOrderLineCreateForm,
+    PurchaseOrderLineUpdateForm,
+    PurchaseOrderSubmitForm,
+    PurchaseOrderUpdateForm,
     SupplierInvoiceCreateForm,
     SupplierInvoiceLineFormSet,
     SupplierInvoicePostForm,
     SupplierInvoiceVoidForm,
     SupplierPaymentRecordForm,
     SupplierPaymentVoidForm,
+    SupplierRegistrationForm,
+    SupplierUpdateForm,
 )
 from apps.purchasing.models import (
+    GoodsReceipt,
     GoodsReceiptLine,
     PurchaseOrder,
+    PurchaseOrderLine,
     Supplier,
     SupplierInvoice,
     SupplierPayment,
 )
 from apps.purchasing.selectors import (
+    find_possible_supplier_duplicates,
+    get_goods_receipt_by_id,
+    get_goods_receipt_movements,
+    get_goods_receipts_for_purchase_order,
+    get_purchase_order_by_id,
+    get_purchase_order_line_by_id,
+    get_purchase_orders_for_supplier,
+    get_supplier_by_id,
     get_supplier_invoice_by_id,
+    get_supplier_invoices_for_supplier,
     get_supplier_payment_by_id,
+    search_goods_receipts,
+    search_purchase_orders,
     search_supplier_invoices,
+    search_suppliers,
+)
+from apps.purchasing.services.purchase_orders import (
+    AddPurchaseOrderLineCommand,
+    CancelPurchaseOrderCommand,
+    CreatePurchaseOrderCommand,
+    UpdatePurchaseOrderCommand,
+    UpdatePurchaseOrderLineCommand,
+    add_purchase_order_line,
+    approve_purchase_order,
+    cancel_purchase_order,
+    create_purchase_order,
+    remove_purchase_order_line,
+    submit_purchase_order,
+    update_purchase_order,
+    update_purchase_order_line,
+)
+from apps.purchasing.services.receipts import (
+    GoodsReceiptLineCommand,
+    ReceivePurchaseOrderCommand,
+    receive_purchase_order,
 )
 from apps.purchasing.services.supplier_invoices import (
     CreateSupplierInvoiceCommand,
@@ -59,6 +105,14 @@ from apps.purchasing.services.supplier_payments import (
     VoidSupplierPaymentCommand,
     record_supplier_payment,
     void_supplier_payment,
+)
+from apps.purchasing.services.suppliers import (
+    RegisterSupplierCommand,
+    UpdateSupplierCommand,
+    deactivate_supplier,
+    reactivate_supplier,
+    register_supplier,
+    update_supplier,
 )
 
 
@@ -86,6 +140,1145 @@ def _add_validation_error(
 
     for message in error.messages:
         form.add_error(None, message)
+
+
+def _get_supplier_or_404(
+    *,
+    supplier_id: int,
+) -> Supplier:
+    """Return one supplier or raise HTTP 404."""
+
+    try:
+        return get_supplier_by_id(supplier_id=supplier_id)
+    except Supplier.DoesNotExist as exc:
+        raise Http404("Supplier not found.") from exc
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_SUPPLIER.value)
+def supplier_list(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display searchable supplier records."""
+
+    query = request.GET.get("q", "").strip()
+    include_inactive = request.GET.get("include_inactive") == "1"
+
+    suppliers = search_suppliers(
+        query=query,
+        include_inactive=include_inactive,
+    )
+
+    paginator = Paginator(suppliers, 20)
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "purchasing/supplier_list.html",
+        {
+            "page": page,
+            "suppliers": page.object_list,
+            "query": query,
+            "include_inactive": include_inactive,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.ADD_SUPPLIER.value)
+def supplier_create(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Register a supplier after duplicate review."""
+
+    duplicate_confirmation_required = False
+    possible_duplicates = Supplier.objects.none()
+
+    if request.method == "POST":
+        form = SupplierRegistrationForm(request.POST)
+
+        if form.is_valid():
+            possible_duplicates = find_possible_supplier_duplicates(
+                code=form.cleaned_data["code"],
+                name=form.cleaned_data["name"],
+                phone_number=(form.cleaned_data["phone_number"]),
+                email=form.cleaned_data["email"],
+                tax_identifier=(form.cleaned_data["tax_identifier"]),
+            )
+
+            duplicate_confirmed = form.cleaned_data["confirm_duplicate"]
+
+            if possible_duplicates.exists() and not duplicate_confirmed:
+                duplicate_confirmation_required = True
+            else:
+                try:
+                    supplier = register_supplier(
+                        actor=cast(
+                            User,
+                            request.user,
+                        ),
+                        command=RegisterSupplierCommand(
+                            code=form.cleaned_data["code"],
+                            name=form.cleaned_data["name"],
+                            contact_name=(form.cleaned_data["contact_name"]),
+                            phone_number=(form.cleaned_data["phone_number"]),
+                            email=form.cleaned_data["email"],
+                            address=form.cleaned_data["address"],
+                            tax_identifier=(form.cleaned_data["tax_identifier"]),
+                            payment_terms_days=(
+                                form.cleaned_data["payment_terms_days"]
+                            ),
+                            preferred_currency=(
+                                form.cleaned_data["preferred_currency"]
+                            ),
+                            notes=form.cleaned_data["notes"],
+                        ),
+                    )
+                except ValidationError as error:
+                    _add_validation_error(
+                        form=form,
+                        error=error,
+                    )
+                else:
+                    messages.success(
+                        request,
+                        (
+                            "Supplier "
+                            f"{supplier.supplier_number} "
+                            "was registered successfully."
+                        ),
+                    )
+
+                    return redirect(
+                        ("purchasing:supplier_detail"),
+                        supplier_id=supplier.pk,
+                    )
+    else:
+        form = SupplierRegistrationForm()
+
+    return render(
+        request,
+        "purchasing/supplier_form.html",
+        {
+            "form": form,
+            "page_title": "Register supplier",
+            "page_description": (
+                "Review possible duplicate records before registering a supplier."
+            ),
+            "submit_label": "Register supplier",
+            "cancel_url": reverse("purchasing:supplier_list"),
+            "possible_duplicates": (possible_duplicates),
+            "duplicate_confirmation_required": (duplicate_confirmation_required),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_SUPPLIER.value)
+def supplier_detail(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Display one supplier and related records."""
+
+    supplier = _get_supplier_or_404(supplier_id=supplier_id)
+
+    return render(
+        request,
+        "purchasing/supplier_detail.html",
+        {
+            "supplier": supplier,
+            "purchase_orders": (
+                get_purchase_orders_for_supplier(supplier_id=supplier_id)[:10]
+            ),
+            "supplier_invoices": (
+                get_supplier_invoices_for_supplier(supplier_id=supplier_id)[:10]
+            ),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_SUPPLIER.value)
+def supplier_update(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Update supplier information after duplicate review."""
+
+    supplier = _get_supplier_or_404(supplier_id=supplier_id)
+    duplicate_confirmation_required = False
+    possible_duplicates = Supplier.objects.none()
+
+    if request.method == "POST":
+        form = SupplierUpdateForm(
+            request.POST,
+            instance=supplier,
+        )
+
+        if form.is_valid():
+            possible_duplicates = find_possible_supplier_duplicates(
+                code=form.cleaned_data["code"],
+                name=form.cleaned_data["name"],
+                phone_number=(form.cleaned_data["phone_number"]),
+                email=form.cleaned_data["email"],
+                tax_identifier=(form.cleaned_data["tax_identifier"]),
+                exclude_supplier_id=supplier_id,
+            )
+
+            duplicate_confirmed = form.cleaned_data["confirm_duplicate"]
+
+            if possible_duplicates.exists() and not duplicate_confirmed:
+                duplicate_confirmation_required = True
+            else:
+                try:
+                    updated_supplier = update_supplier(
+                        actor=cast(
+                            User,
+                            request.user,
+                        ),
+                        supplier_id=supplier_id,
+                        command=UpdateSupplierCommand(
+                            code=form.cleaned_data["code"],
+                            name=form.cleaned_data["name"],
+                            contact_name=(form.cleaned_data["contact_name"]),
+                            phone_number=(form.cleaned_data["phone_number"]),
+                            email=form.cleaned_data["email"],
+                            address=form.cleaned_data["address"],
+                            tax_identifier=(form.cleaned_data["tax_identifier"]),
+                            payment_terms_days=(
+                                form.cleaned_data["payment_terms_days"]
+                            ),
+                            preferred_currency=(
+                                form.cleaned_data["preferred_currency"]
+                            ),
+                            notes=form.cleaned_data["notes"],
+                        ),
+                    )
+                except ValidationError as error:
+                    _add_validation_error(
+                        form=form,
+                        error=error,
+                    )
+                else:
+                    messages.success(
+                        request,
+                        (
+                            "Supplier "
+                            f"{updated_supplier.supplier_number} "
+                            "was updated successfully."
+                        ),
+                    )
+
+                    return redirect(
+                        ("purchasing:supplier_detail"),
+                        supplier_id=supplier_id,
+                    )
+    else:
+        form = SupplierUpdateForm(instance=supplier)
+
+    return render(
+        request,
+        "purchasing/supplier_form.html",
+        {
+            "form": form,
+            "supplier": supplier,
+            "page_title": "Edit supplier",
+            "page_description": (
+                "Update the supplier's contact, payment and business information."
+            ),
+            "submit_label": "Save changes",
+            "cancel_url": reverse(
+                "purchasing:supplier_detail",
+                args=(supplier_id,),
+            ),
+            "possible_duplicates": (possible_duplicates),
+            "duplicate_confirmation_required": (duplicate_confirmation_required),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.DEACTIVATE_SUPPLIER.value)
+@require_POST
+def supplier_deactivate(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Deactivate a supplier while preserving history."""
+
+    _get_supplier_or_404(supplier_id=supplier_id)
+
+    try:
+        supplier = deactivate_supplier(
+            actor=cast(
+                User,
+                request.user,
+            ),
+            supplier_id=supplier_id,
+        )
+    except ValidationError as error:
+        messages.error(
+            request,
+            " ".join(error.messages),
+        )
+    else:
+        messages.success(
+            request,
+            (f"Supplier {supplier.supplier_number} was deactivated."),
+        )
+
+    return redirect(
+        "purchasing:supplier_detail",
+        supplier_id=supplier_id,
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.REACTIVATE_SUPPLIER.value)
+@require_POST
+def supplier_reactivate(
+    request: HttpRequest,
+    supplier_id: int,
+) -> HttpResponse:
+    """Reactivate an inactive supplier."""
+
+    _get_supplier_or_404(supplier_id=supplier_id)
+
+    supplier = reactivate_supplier(
+        actor=cast(
+            User,
+            request.user,
+        ),
+        supplier_id=supplier_id,
+    )
+
+    messages.success(
+        request,
+        (f"Supplier {supplier.supplier_number} was reactivated."),
+    )
+
+    return redirect(
+        "purchasing:supplier_detail",
+        supplier_id=supplier_id,
+    )
+
+
+def _get_purchase_order_or_404(
+    *,
+    purchase_order_id: int,
+) -> PurchaseOrder:
+    """Return one purchase order or raise HTTP 404."""
+
+    try:
+        return get_purchase_order_by_id(purchase_order_id=purchase_order_id)
+    except PurchaseOrder.DoesNotExist as exc:
+        raise Http404("Purchase order not found.") from exc
+
+
+def _validated_purchase_order_status(
+    value: str,
+) -> str:
+    """Return a recognised purchase-order status."""
+
+    valid_statuses = {choice.value for choice in PurchaseOrderStatus}
+
+    if value in valid_statuses:
+        return value
+
+    return ""
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_PURCHASE_ORDER.value)
+def purchase_order_list(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display searchable purchase-order records."""
+
+    query = request.GET.get("q", "").strip()
+    selected_status = _validated_purchase_order_status(request.GET.get("status", ""))
+    selected_supplier_id = _integer_filter(request.GET.get("supplier", ""))
+
+    purchase_orders = search_purchase_orders(
+        query=query,
+        status=selected_status,
+        supplier_id=selected_supplier_id,
+    )
+
+    paginator = Paginator(
+        purchase_orders,
+        20,
+    )
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        "purchasing/purchase_order_list.html",
+        {
+            "page": page,
+            "purchase_orders": page.object_list,
+            "query": query,
+            "selected_status": selected_status,
+            "selected_supplier_id": (selected_supplier_id),
+            "status_choices": (PurchaseOrderStatus.choices),
+            "suppliers": search_suppliers(include_inactive=True),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.ADD_PURCHASE_ORDER.value)
+def purchase_order_create(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Create one draft purchase order."""
+
+    if request.method == "POST":
+        form = PurchaseOrderCreateForm(request.POST)
+
+        if form.is_valid():
+            supplier = form.cleaned_data["supplier"]
+
+            try:
+                purchase_order = create_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    command=(
+                        CreatePurchaseOrderCommand(
+                            supplier_id=supplier.pk,
+                            currency=(form.cleaned_data["currency"]),
+                            discount_percentage=(
+                                form.cleaned_data["discount_percentage"]
+                            ),
+                            tax_percentage=(form.cleaned_data["tax_percentage"]),
+                            delivery_cost=(form.cleaned_data["delivery_cost"]),
+                            expected_delivery_date=(
+                                form.cleaned_data["expected_delivery_date"]
+                            ),
+                            supplier_reference=(
+                                form.cleaned_data["supplier_reference"]
+                            ),
+                            notes=(form.cleaned_data["notes"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{purchase_order.purchase_order_number} "
+                        "was created successfully."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order.pk),
+                )
+    else:
+        initial: dict[str, object] = {}
+
+        selected_supplier_id = _integer_filter(request.GET.get("supplier", ""))
+
+        if selected_supplier_id is not None:
+            try:
+                selected_supplier = get_supplier_by_id(
+                    supplier_id=(selected_supplier_id)
+                )
+            except Supplier.DoesNotExist:
+                selected_supplier = None
+
+            if selected_supplier is not None and selected_supplier.is_active:
+                initial["supplier"] = selected_supplier
+                initial["currency"] = selected_supplier.preferred_currency
+
+        form = PurchaseOrderCreateForm(initial=initial)
+
+    return render(
+        request,
+        "purchasing/purchase_order_form.html",
+        {
+            "form": form,
+            "page_title": ("Create purchase order"),
+            "page_description": (
+                "Create a draft purchase order before adding products."
+            ),
+            "submit_label": ("Create purchase order"),
+            "cancel_url": reverse("purchasing:purchase_order_list"),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_PURCHASE_ORDER.value)
+def purchase_order_detail(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Display one purchase order and its lines."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=(purchase_order_id))
+
+    return render(
+        request,
+        "purchasing/purchase_order_detail.html",
+        {
+            "purchase_order": purchase_order,
+            "purchase_order_lines": (purchase_order.lines.all()),
+            "goods_receipts": (
+                get_goods_receipts_for_purchase_order(
+                    purchase_order_id=(purchase_order_id)
+                )
+            ),
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_update(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Update one draft purchase-order header."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=(purchase_order_id))
+
+    if request.method == "POST":
+        form = PurchaseOrderUpdateForm(
+            request.POST,
+            instance=purchase_order,
+        )
+
+        if form.is_valid():
+            supplier = form.cleaned_data["supplier"]
+
+            try:
+                updated_purchase_order = update_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                    command=(
+                        UpdatePurchaseOrderCommand(
+                            supplier_id=supplier.pk,
+                            currency=(form.cleaned_data["currency"]),
+                            discount_percentage=(
+                                form.cleaned_data["discount_percentage"]
+                            ),
+                            tax_percentage=(form.cleaned_data["tax_percentage"]),
+                            delivery_cost=(form.cleaned_data["delivery_cost"]),
+                            expected_delivery_date=(
+                                form.cleaned_data["expected_delivery_date"]
+                            ),
+                            supplier_reference=(
+                                form.cleaned_data["supplier_reference"]
+                            ),
+                            notes=(form.cleaned_data["notes"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{updated_purchase_order.purchase_order_number} "
+                        "was updated successfully."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderUpdateForm(instance=purchase_order)
+
+    return render(
+        request,
+        "purchasing/purchase_order_form.html",
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "page_title": ("Edit purchase order"),
+            "page_description": (
+                "Update the supplier, pricing, delivery and reference details."
+            ),
+            "submit_label": "Save changes",
+            "cancel_url": reverse(
+                "purchasing:purchase_order_detail",
+                args=(purchase_order_id,),
+            ),
+        },
+    )
+
+
+def _get_purchase_order_line_or_404(
+    *,
+    purchase_order_line_id: int,
+) -> PurchaseOrderLine:
+    """Return one purchase-order line or HTTP 404."""
+
+    try:
+        return get_purchase_order_line_by_id(
+            purchase_order_line_id=(purchase_order_line_id)
+        )
+    except PurchaseOrderLine.DoesNotExist as exc:
+        raise Http404("Purchase-order line not found.") from exc
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_line_add(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Add one product to a draft purchase order."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderLineCreateForm(
+            request.POST,
+            purchase_order=purchase_order,
+        )
+
+        if form.is_valid():
+            product = form.cleaned_data["product"]
+
+            try:
+                line = add_purchase_order_line(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                    command=(
+                        AddPurchaseOrderLineCommand(
+                            product_id=product.pk,
+                            quantity_ordered=(form.cleaned_data["quantity_ordered"]),
+                            unit_cost=(form.cleaned_data["unit_cost"]),
+                            description_override=(
+                                form.cleaned_data["description_override"]
+                            ),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (f"{line.product_name_snapshot} was added to the purchase order."),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderLineCreateForm(purchase_order=purchase_order)
+
+    return render(
+        request,
+        ("purchasing/purchase_order_line_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "page_title": "Add product",
+            "page_description": (
+                "Select a product and record the supplier quantity and unit cost."
+            ),
+            "submit_label": "Add product",
+            "cancel_url": reverse(
+                "purchasing:purchase_order_detail",
+                args=(purchase_order_id,),
+            ),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_line_update(
+    request: HttpRequest,
+    purchase_order_line_id: int,
+) -> HttpResponse:
+    """Update quantity, cost and description."""
+
+    line = _get_purchase_order_line_or_404(
+        purchase_order_line_id=(purchase_order_line_id)
+    )
+    purchase_order = line.purchase_order
+
+    if request.method == "POST":
+        form = PurchaseOrderLineUpdateForm(request.POST)
+
+        if form.is_valid():
+            try:
+                updated_line = update_purchase_order_line(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_line_id=(purchase_order_line_id),
+                    command=(
+                        UpdatePurchaseOrderLineCommand(
+                            quantity_ordered=(form.cleaned_data["quantity_ordered"]),
+                            unit_cost=(form.cleaned_data["unit_cost"]),
+                            description_override=(
+                                form.cleaned_data["description_override"]
+                            ),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (f"{updated_line.product_name_snapshot} was updated successfully."),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order.pk),
+                )
+    else:
+        form = PurchaseOrderLineUpdateForm(
+            initial={
+                "quantity_ordered": (line.quantity_ordered),
+                "unit_cost": line.unit_cost,
+                "description_override": (line.description_snapshot),
+            }
+        )
+
+    return render(
+        request,
+        ("purchasing/purchase_order_line_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "purchase_order_line": line,
+            "page_title": "Edit product line",
+            "page_description": (
+                "Update the supplier quantity, unit cost or description."
+            ),
+            "submit_label": "Save line changes",
+            "cancel_url": reverse(
+                "purchasing:purchase_order_detail",
+                args=(purchase_order.pk,),
+            ),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CHANGE_PURCHASE_ORDER.value)
+def purchase_order_line_remove(
+    request: HttpRequest,
+    purchase_order_line_id: int,
+) -> HttpResponse:
+    """Remove one product from a draft order."""
+
+    line = _get_purchase_order_line_or_404(
+        purchase_order_line_id=(purchase_order_line_id)
+    )
+    purchase_order = line.purchase_order
+
+    if request.method == "POST":
+        product_name = line.product_name_snapshot
+
+        try:
+            remove_purchase_order_line(
+                actor=cast(
+                    User,
+                    request.user,
+                ),
+                purchase_order_line_id=(purchase_order_line_id),
+            )
+        except ValidationError as error:
+            messages.error(
+                request,
+                " ".join(error.messages),
+            )
+        else:
+            messages.success(
+                request,
+                (f"{product_name} was removed from the purchase order."),
+            )
+
+        return redirect(
+            "purchasing:purchase_order_detail",
+            purchase_order_id=(purchase_order.pk),
+        )
+
+    return render(
+        request,
+        ("purchasing/purchase_order_line_remove_form.html"),
+        {
+            "purchase_order": purchase_order,
+            "purchase_order_line": line,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.SUBMIT_PURCHASE_ORDER.value)
+def purchase_order_submit(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Submit a completed draft for approval."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderSubmitForm(request.POST)
+
+        if form.is_valid():
+            try:
+                submitted_purchase_order = submit_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{submitted_purchase_order.purchase_order_number} "
+                        "was submitted for approval."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderSubmitForm()
+
+    return render(
+        request,
+        ("purchasing/purchase_order_submit_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.APPROVE_PURCHASE_ORDER.value)
+def purchase_order_approve(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Approve one submitted purchase order."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderApprovalForm(request.POST)
+
+        if form.is_valid():
+            try:
+                approved_purchase_order = approve_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{approved_purchase_order.purchase_order_number} "
+                        "was approved successfully."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderApprovalForm()
+
+    return render(
+        request,
+        ("purchasing/purchase_order_approval_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.CANCEL_PURCHASE_ORDER.value)
+def purchase_order_cancel(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Cancel an unreceived purchase order."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=purchase_order_id)
+
+    if request.method == "POST":
+        form = PurchaseOrderCancellationForm(request.POST)
+
+        if form.is_valid():
+            try:
+                cancelled_purchase_order = cancel_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    purchase_order_id=(purchase_order_id),
+                    command=(
+                        CancelPurchaseOrderCommand(
+                            reason=(form.cleaned_data["reason"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Purchase order "
+                        f"{cancelled_purchase_order.purchase_order_number} "
+                        "was cancelled."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:purchase_order_detail",
+                    purchase_order_id=(purchase_order_id),
+                )
+    else:
+        form = PurchaseOrderCancellationForm()
+
+    return render(
+        request,
+        ("purchasing/purchase_order_cancellation_form.html"),
+        {
+            "form": form,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+def _get_goods_receipt_or_404(
+    *,
+    goods_receipt_id: int,
+) -> GoodsReceipt:
+    """Return one goods receipt or HTTP 404."""
+
+    try:
+        return get_goods_receipt_by_id(goods_receipt_id=(goods_receipt_id))
+    except GoodsReceipt.DoesNotExist as exc:
+        raise Http404("Goods receipt not found.") from exc
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_GOODS_RECEIPT.value)
+def goods_receipt_list(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display searchable goods-receipt records."""
+
+    query = request.GET.get("q", "").strip()
+    selected_purchase_order_id = _integer_filter(
+        request.GET.get(
+            "purchase_order",
+            "",
+        )
+    )
+    selected_supplier_id = _integer_filter(request.GET.get("supplier", ""))
+
+    goods_receipts = search_goods_receipts(
+        query=query,
+        purchase_order_id=(selected_purchase_order_id),
+        supplier_id=selected_supplier_id,
+    )
+
+    paginator = Paginator(
+        goods_receipts,
+        20,
+    )
+    page = paginator.get_page(request.GET.get("page"))
+
+    return render(
+        request,
+        ("purchasing/goods_receipt_list.html"),
+        {
+            "page": page,
+            "goods_receipts": page.object_list,
+            "query": query,
+            "selected_purchase_order_id": (selected_purchase_order_id),
+            "selected_supplier_id": (selected_supplier_id),
+            "purchase_orders": (search_purchase_orders()),
+            "suppliers": search_suppliers(include_inactive=True),
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.RECEIVE_PURCHASE_ORDER.value)
+def goods_receipt_create(
+    request: HttpRequest,
+    purchase_order_id: int,
+) -> HttpResponse:
+    """Record one supplier delivery into Inventory."""
+
+    purchase_order = _get_purchase_order_or_404(purchase_order_id=(purchase_order_id))
+
+    if request.method == "POST":
+        header_form = GoodsReceiptHeaderForm(request.POST)
+        line_formset = GoodsReceiptLineFormSet(
+            request.POST,
+            purchase_order=purchase_order,
+            prefix="lines",
+        )
+
+        if header_form.is_valid() and line_formset.is_valid():
+            receipt_line_commands: list[GoodsReceiptLineCommand] = []
+
+            for line_form in line_formset.forms:
+                line_data = getattr(
+                    line_form,
+                    "cleaned_data",
+                    {},
+                )
+
+                if not line_data.get("receive"):
+                    continue
+
+                purchase_order_line_id = line_data.get("purchase_order_line_id")
+                inventory_item = line_data.get("inventory_item")
+                quantity_received = line_data.get("quantity_received")
+
+                if (
+                    purchase_order_line_id is None
+                    or inventory_item is None
+                    or quantity_received is None
+                ):
+                    continue
+
+                receipt_line_commands.append(
+                    GoodsReceiptLineCommand(
+                        purchase_order_line_id=(purchase_order_line_id),
+                        inventory_item_id=(inventory_item.pk),
+                        quantity_received=(quantity_received),
+                    )
+                )
+
+            try:
+                goods_receipt = receive_purchase_order(
+                    actor=cast(
+                        User,
+                        request.user,
+                    ),
+                    command=(
+                        ReceivePurchaseOrderCommand(
+                            purchase_order_id=(purchase_order_id),
+                            lines=tuple(receipt_line_commands),
+                            supplier_delivery_reference=(
+                                header_form.cleaned_data["supplier_delivery_reference"]
+                            ),
+                            received_at=(header_form.cleaned_data["received_at"]),
+                            notes=(header_form.cleaned_data["notes"]),
+                        )
+                    ),
+                )
+            except ValidationError as error:
+                _add_validation_error(
+                    form=header_form,
+                    error=error,
+                )
+            else:
+                messages.success(
+                    request,
+                    (
+                        "Goods receipt "
+                        f"{goods_receipt.goods_receipt_number} "
+                        "was posted to Inventory."
+                    ),
+                )
+
+                return redirect(
+                    "purchasing:goods_receipt_detail",
+                    goods_receipt_id=(goods_receipt.pk),
+                )
+    else:
+        header_form = GoodsReceiptHeaderForm()
+        line_formset = GoodsReceiptLineFormSet(
+            purchase_order=purchase_order,
+            prefix="lines",
+        )
+
+    return render(
+        request,
+        ("purchasing/goods_receipt_form.html"),
+        {
+            "header_form": header_form,
+            "line_formset": line_formset,
+            "purchase_order": purchase_order,
+            "totals": purchase_order.totals,
+        },
+    )
+
+
+@employee_permission_required(PurchasingPermissionName.VIEW_GOODS_RECEIPT.value)
+def goods_receipt_detail(
+    request: HttpRequest,
+    goods_receipt_id: int,
+) -> HttpResponse:
+    """Display one receipt and its inventory audit."""
+
+    goods_receipt = _get_goods_receipt_or_404(goods_receipt_id=(goods_receipt_id))
+
+    return render(
+        request,
+        ("purchasing/goods_receipt_detail.html"),
+        {
+            "goods_receipt": goods_receipt,
+            "goods_receipt_lines": (goods_receipt.lines.all()),
+            "stock_movements": (
+                get_goods_receipt_movements(goods_receipt_id=(goods_receipt_id))
+            ),
+        },
+    )
 
 
 def _get_supplier_invoice_or_404(

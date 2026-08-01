@@ -70,6 +70,11 @@ from apps.product_catalogue.services.catalogue import (
 from apps.purchasing.constants import (
     SupplierPaymentMethod,
 )
+from apps.purchasing.models import (
+    PurchaseOrder,
+    PurchaseOrderLine,
+    Supplier,
+)
 from apps.purchasing.services.purchase_orders import (
     AddPurchaseOrderLineCommand,
     CreatePurchaseOrderCommand,
@@ -410,6 +415,58 @@ def _complete_demo_work_order(
     work_order.refresh_from_db()
 
 
+def _create_demo_purchase_order(
+    *,
+    actor: User,
+    supplier: Supplier,
+    product: Product,
+    supplier_reference: str,
+    quantity_ordered: Decimal,
+    notes: str,
+) -> tuple[
+    PurchaseOrder,
+    PurchaseOrderLine,
+]:
+    """Create one purchase order with one product line."""
+
+    purchase_order = create_purchase_order(
+        actor=actor,
+        command=CreatePurchaseOrderCommand(
+            supplier_id=_require_pk(
+                supplier.pk,
+                label="Supplier",
+            ),
+            currency="UGX",
+            expected_delivery_date=(date.today() + timedelta(days=7)),
+            supplier_reference=(supplier_reference),
+            notes=notes,
+        ),
+    )
+
+    purchase_order_line = add_purchase_order_line(
+        actor=actor,
+        purchase_order_id=_require_pk(
+            purchase_order.pk,
+            label="Purchase order",
+        ),
+        command=(
+            AddPurchaseOrderLineCommand(
+                product_id=_require_pk(
+                    product.pk,
+                    label="Product",
+                ),
+                quantity_ordered=(quantity_ordered),
+                unit_cost=Decimal("25000.00"),
+            )
+        ),
+    )
+
+    return (
+        purchase_order,
+        purchase_order_line,
+    )
+
+
 class Command(BaseCommand):
     """Reset local records and create reusable test scenarios."""
 
@@ -602,6 +659,119 @@ class Command(BaseCommand):
                         "Reusable supplier for Purchasing "
                         "and accounts-payable demonstrations."
                     ),
+                ),
+            )
+
+            # Purchasing lifecycle browser scenarios.
+            draft_purchase_order, _ = _create_demo_purchase_order(
+                actor=admin,
+                supplier=supplier,
+                product=product,
+                supplier_reference=("DEMO-PO-DRAFT"),
+                quantity_ordered=Decimal("8.000"),
+                notes=("Draft order for editing, product-line and submission testing."),
+            )
+
+            submitted_purchase_order, _ = _create_demo_purchase_order(
+                actor=admin,
+                supplier=supplier,
+                product=product,
+                supplier_reference=("DEMO-PO-SUBMITTED"),
+                quantity_ordered=Decimal("10.000"),
+                notes=("Submitted order for approval and cancellation testing."),
+            )
+
+            submit_purchase_order(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    submitted_purchase_order.pk,
+                    label=("Submitted purchase order"),
+                ),
+            )
+
+            approved_purchase_order, _ = _create_demo_purchase_order(
+                actor=admin,
+                supplier=supplier,
+                product=product,
+                supplier_reference=("DEMO-PO-APPROVED"),
+                quantity_ordered=Decimal("12.000"),
+                notes=("Approved order ready for goods-receipt testing."),
+            )
+
+            submit_purchase_order(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    approved_purchase_order.pk,
+                    label=("Approved purchase order"),
+                ),
+            )
+
+            approved_purchase_order = approve_purchase_order(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    approved_purchase_order.pk,
+                    label=("Approved purchase order"),
+                ),
+            )
+
+            (
+                partial_purchase_order,
+                partial_purchase_order_line,
+            ) = _create_demo_purchase_order(
+                actor=admin,
+                supplier=supplier,
+                product=product,
+                supplier_reference=("DEMO-PO-PARTIAL"),
+                quantity_ordered=Decimal("10.000"),
+                notes=("Partially received order for follow-up delivery testing."),
+            )
+
+            submit_purchase_order(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    partial_purchase_order.pk,
+                    label=("Partial purchase order"),
+                ),
+            )
+
+            partial_purchase_order = approve_purchase_order(
+                actor=admin,
+                purchase_order_id=_require_pk(
+                    partial_purchase_order.pk,
+                    label=("Partial purchase order"),
+                ),
+            )
+
+            partial_goods_receipt = receive_purchase_order(
+                actor=admin,
+                command=(
+                    ReceivePurchaseOrderCommand(
+                        purchase_order_id=(
+                            _require_pk(
+                                partial_purchase_order.pk,
+                                label=("Partial purchase order"),
+                            )
+                        ),
+                        lines=(
+                            GoodsReceiptLineCommand(
+                                purchase_order_line_id=(
+                                    _require_pk(
+                                        partial_purchase_order_line.pk,
+                                        label=("Partial order line"),
+                                    )
+                                ),
+                                inventory_item_id=(
+                                    _require_pk(
+                                        inventory_item.pk,
+                                        label=("Inventory item"),
+                                    )
+                                ),
+                                quantity_received=(Decimal("4.000")),
+                            ),
+                        ),
+                        supplier_delivery_reference=("DEMO-DELIVERY-PARTIAL"),
+                        notes=("First partial supplier delivery."),
+                    )
                 ),
             )
 
@@ -1022,6 +1192,98 @@ class Command(BaseCommand):
 
         self.stdout.write("")
         self.stdout.write("Testing scenarios:")
+
+        self.stdout.write("  Purchasing dashboard: /purchasing/purchase-orders/")
+
+        self.stdout.write("  Goods-receipt list: /purchasing/goods-receipts/")
+
+        self.stdout.write(
+            "  Draft purchase order:"
+            f" /purchasing/purchase-orders/"
+            f"{
+                _require_pk(
+                    draft_purchase_order.pk,
+                    label='Draft purchase order',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Submitted purchase order:"
+            f" /purchasing/purchase-orders/"
+            f"{
+                _require_pk(
+                    submitted_purchase_order.pk,
+                    label='Submitted purchase order',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Approved purchase order:"
+            f" /purchasing/purchase-orders/"
+            f"{
+                _require_pk(
+                    approved_purchase_order.pk,
+                    label='Approved purchase order',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Receive approved purchase order:"
+            f" /purchasing/purchase-orders/"
+            f"{
+                _require_pk(
+                    approved_purchase_order.pk,
+                    label='Approved purchase order',
+                )
+            }/receipts/new/"
+        )
+
+        self.stdout.write(
+            "  Partially received purchase order:"
+            f" /purchasing/purchase-orders/"
+            f"{
+                _require_pk(
+                    partial_purchase_order.pk,
+                    label='Partial purchase order',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Partial goods receipt:"
+            f" /purchasing/goods-receipts/"
+            f"{
+                _require_pk(
+                    partial_goods_receipt.pk,
+                    label='Partial goods receipt',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Fully received purchase order:"
+            f" /purchasing/purchase-orders/"
+            f"{
+                _require_pk(
+                    purchase_order.pk,
+                    label='Complete purchase order',
+                )
+            }/"
+        )
+
+        self.stdout.write(
+            "  Complete goods receipt:"
+            f" /purchasing/goods-receipts/"
+            f"{
+                _require_pk(
+                    goods_receipt.pk,
+                    label='Complete goods receipt',
+                )
+            }/"
+        )
 
         self.stdout.write(
             "  Ready to reserve:"

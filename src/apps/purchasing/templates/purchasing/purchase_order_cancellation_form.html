@@ -1,0 +1,208 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Cancel purchase order | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ purchase_order.purchase_order_number }}
+            </p>
+
+            <h1>Cancel purchase order</h1>
+
+            <p class="page-header__description">
+                Review the purchase order and record why it
+                should no longer proceed.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Back to purchase order
+            </a>
+        </div>
+    </header>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Purchase-order summary</h2>
+
+            <p class="page-header__description">
+                Cancellation preserves the order, its product
+                lines and its audit history.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    {{ purchase_order.get_status_display }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier</dt>
+                <dd>
+                    {{ purchase_order.supplier_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier reference</dt>
+                <dd>
+                    {{ purchase_order.supplier_reference|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Products</dt>
+                <dd>
+                    {{ purchase_order.lines.all|length }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Total</dt>
+                <dd>
+                    <strong>
+                        {{ purchase_order.currency }}
+                        {{ totals.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    {% if purchase_order.status == "PARTIALLY_RECEIVED" or purchase_order.status == "RECEIVED" %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>
+                    This purchase order cannot be cancelled.
+                </strong>
+            </p>
+
+            <p>
+                A partially or fully received purchase order
+                must remain available for inventory and
+                financial audit.
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Return to purchase order
+            </a>
+        </div>
+    {% elif purchase_order.status == "CANCELLED" %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>
+                    This purchase order is already cancelled.
+                </strong>
+            </p>
+
+            <p>
+                {{ purchase_order.cancellation_reason }}
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Return to purchase order
+            </a>
+        </div>
+    {% else %}
+        <section class="card">
+            <div
+                class="alert alert--error"
+                role="alert"
+            >
+                <p>
+                    <strong>
+                        Cancellation is permanent.
+                    </strong>
+                </p>
+
+                <p>
+                    The order will remain visible for audit,
+                    but it cannot return to Draft or proceed
+                    to goods receipt.
+                </p>
+            </div>
+
+            {% if form.non_field_errors %}
+                <div
+                    class="alert alert--error"
+                    role="alert"
+                >
+                    {% for error in form.non_field_errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            {% endif %}
+
+            <form
+                class="form"
+                method="post"
+                novalidate
+            >
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label
+                        class="form-label"
+                        for="{{ form.reason.id_for_label }}"
+                    >
+                        Cancellation reason
+                        <span aria-hidden="true">*</span>
+                    </label>
+
+                    {{ form.reason }}
+
+                    {% for error in form.reason.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-actions">
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                    >
+                        Keep purchase order
+                    </a>
+
+                    <button
+                        class="button button--danger"
+                        type="submit"
+                    >
+                        Cancel purchase order
+                    </button>
+                </div>
+            </form>
+        </section>
+    {% endif %}
+{% endblock %}

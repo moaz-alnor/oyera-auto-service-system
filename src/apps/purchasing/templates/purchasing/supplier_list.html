@@ -1,0 +1,243 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Suppliers | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Purchasing management
+            </p>
+
+            <h1>Suppliers</h1>
+
+            <p class="page-header__description">
+                Search, review, and maintain companies that
+                supply products to the workshop.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            {% if perms.purchasing.view_purchaseorder %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:purchase_order_list' %}"
+                >
+                    Purchase orders
+                </a>
+            {% endif %}
+
+            {% if perms.purchasing.view_supplierinvoice %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_invoice_list' %}"
+                >
+                    Supplier invoices
+                </a>
+            {% endif %}
+
+            {% if perms.purchasing.add_supplier %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'purchasing:supplier_create' %}"
+                >
+                    Register supplier
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <form
+            class="search-toolbar"
+            method="get"
+        >
+            <div class="form-group search-toolbar__field">
+                <label
+                    class="form-label"
+                    for="supplier-search"
+                >
+                    Search suppliers
+                </label>
+
+                <input
+                    id="supplier-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Number, code, name, contact, phone, email, or tax ID"
+                >
+            </div>
+
+            <label class="checkbox-field">
+                <input
+                    type="checkbox"
+                    name="include_inactive"
+                    value="1"
+                    {% if include_inactive %}
+                        checked
+                    {% endif %}
+                >
+
+                Include inactive suppliers
+            </label>
+
+            <button
+                class="button button--secondary"
+                type="submit"
+            >
+                Search
+            </button>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                Supplier number
+                            </th>
+
+                            <th scope="col">Code</th>
+                            <th scope="col">Supplier</th>
+                            <th scope="col">Contact</th>
+                            <th scope="col">Phone</th>
+                            <th scope="col">Terms</th>
+                            <th scope="col">Currency</th>
+                            <th scope="col">Status</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for supplier in page.object_list %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'purchasing:supplier_detail' supplier.pk %}"
+                                    >
+                                        {{ supplier.supplier_number }}
+                                    </a>
+                                </td>
+
+                                <td>{{ supplier.code }}</td>
+
+                                <td>
+                                    <strong>
+                                        {{ supplier.name }}
+                                    </strong>
+
+                                    {% if supplier.email %}
+                                        <br>
+
+                                        <span>
+                                            {{ supplier.email }}
+                                        </span>
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    {{ supplier.contact_name|default:"Not provided" }}
+                                </td>
+
+                                <td>
+                                    {{ supplier.phone_number|default:"Not provided" }}
+                                </td>
+
+                                <td>
+                                    {{ supplier.payment_terms_days }}
+                                    day{{ supplier.payment_terms_days|pluralize }}
+                                </td>
+
+                                <td>
+                                    {{ supplier.preferred_currency }}
+                                </td>
+
+                                <td>
+                                    {% if supplier.is_active %}
+                                        <span class="status-badge status-badge--active">
+                                            Active
+                                        </span>
+                                    {% else %}
+                                        <span class="status-badge status-badge--inactive">
+                                            Inactive
+                                        </span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.has_other_pages %}
+                <nav
+                    class="pagination"
+                    aria-label="Supplier pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }} of
+                        {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}{% if include_inactive %}&include_inactive=1{% endif %}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                {% if query or include_inactive %}
+                    <h2>No matching suppliers</h2>
+
+                    <p>
+                        Adjust the search criteria or clear
+                        the inactive-supplier filter.
+                    </p>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:supplier_list' %}"
+                    >
+                        Clear search
+                    </a>
+                {% else %}
+                    <h2>No suppliers registered</h2>
+
+                    <p>
+                        Register a supplier before creating
+                        purchase orders.
+                    </p>
+
+                    {% if perms.purchasing.add_supplier %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'purchasing:supplier_create' %}"
+                        >
+                            Register supplier
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}

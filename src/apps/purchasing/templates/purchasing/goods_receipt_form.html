@@ -1,0 +1,342 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Receive supplier delivery | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                {{ purchase_order.purchase_order_number }}
+            </p>
+
+            <h1>Receive supplier delivery</h1>
+
+            <p class="page-header__description">
+                Record delivered quantities and the Inventory
+                locations receiving each product.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Back to purchase order
+            </a>
+
+            {% if perms.purchasing.view_goodsreceipt %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:goods_receipt_list' %}?purchase_order={{ purchase_order.pk }}"
+                >
+                    Previous receipts
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <header class="page-header">
+            <h2>Purchase-order summary</h2>
+
+            <p class="page-header__description">
+                Confirm that this delivery belongs to the
+                correct supplier and purchase order.
+            </p>
+        </header>
+
+        <dl class="details-grid">
+            <div>
+                <dt>Status</dt>
+                <dd>
+                    <span class="status-badge">
+                        {{ purchase_order.get_status_display }}
+                    </span>
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier</dt>
+                <dd>
+                    {{ purchase_order.supplier_name_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier number</dt>
+                <dd>
+                    {{ purchase_order.supplier_number_snapshot }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Supplier reference</dt>
+                <dd>
+                    {{ purchase_order.supplier_reference|default:"Not provided" }}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Expected delivery</dt>
+                <dd>
+                    {% if purchase_order.expected_delivery_date %}
+                        {{ purchase_order.expected_delivery_date|date:"d M Y" }}
+                    {% else %}
+                        Not scheduled
+                    {% endif %}
+                </dd>
+            </div>
+
+            <div>
+                <dt>Purchase-order total</dt>
+                <dd>
+                    <strong>
+                        {{ purchase_order.currency }}
+                        {{ totals.total|floatformat:2 }}
+                    </strong>
+                </dd>
+            </div>
+        </dl>
+    </section>
+
+    {% if purchase_order.status == "APPROVED" or purchase_order.status == "PARTIALLY_RECEIVED" %}
+        {% if line_formset.total_form_count %}
+            <form
+                method="post"
+                novalidate
+            >
+                {% csrf_token %}
+                {{ line_formset.management_form }}
+
+                <section class="card">
+                    <header class="page-header">
+                        <h2>Delivery information</h2>
+
+                        <p class="page-header__description">
+                            Record the supplier delivery note,
+                            receiving time and relevant notes.
+                        </p>
+                    </header>
+
+                    {% if header_form.non_field_errors %}
+                        <div
+                            class="alert alert--error"
+                            role="alert"
+                        >
+                            {% for error in header_form.non_field_errors %}
+                                <p class="form-error">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    {% for field in header_form.visible_fields %}
+                        <div class="form-group">
+                            <label
+                                class="form-label"
+                                for="{{ field.id_for_label }}"
+                            >
+                                {{ field.label }}
+
+                                {% if field.field.required %}
+                                    <span aria-hidden="true">*</span>
+                                {% endif %}
+                            </label>
+
+                            {{ field }}
+
+                            {% if field.help_text %}
+                                <p class="form-help">
+                                    {{ field.help_text }}
+                                </p>
+                            {% endif %}
+
+                            {% for error in field.errors %}
+                                <p class="form-error">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% endfor %}
+                </section>
+
+                <section class="card">
+                    <header class="page-header">
+                        <h2>Delivered products</h2>
+
+                        <p class="page-header__description">
+                            Select every delivered product,
+                            its destination and quantity.
+                        </p>
+                    </header>
+
+                    {% if line_formset.non_form_errors %}
+                        <div
+                            class="alert alert--error"
+                            role="alert"
+                        >
+                            {% for error in line_formset.non_form_errors %}
+                                <p class="form-error">
+                                    {{ error }}
+                                </p>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th scope="col">
+                                        Receive
+                                    </th>
+                                    <th scope="col">
+                                        Product
+                                    </th>
+                                    <th scope="col">
+                                        Ordered
+                                    </th>
+                                    <th scope="col">
+                                        Remaining
+                                    </th>
+                                    <th scope="col">
+                                        Inventory location
+                                    </th>
+                                    <th scope="col">
+                                        Delivered quantity
+                                    </th>
+                                </tr>
+                            </thead>
+
+                            <tbody>
+                                {% for line_form in line_formset.forms %}
+                                    <tr>
+                                        <td>
+                                            {{ line_form.purchase_order_line_id }}
+                                            {{ line_form.receive }}
+
+                                            {% for error in line_form.purchase_order_line_id.errors %}
+                                                <p class="form-error">
+                                                    {{ error }}
+                                                </p>
+                                            {% endfor %}
+                                        </td>
+
+                                        <td>
+                                            <strong>
+                                                {{ line_form.purchase_order_line.product_name_snapshot }}
+                                            </strong>
+
+                                            <br>
+
+                                            <span>
+                                                {{ line_form.purchase_order_line.product_sku_snapshot }}
+                                            </span>
+
+                                            <br>
+
+                                            <span>
+                                                {{ line_form.purchase_order_line.unit_snapshot }}
+                                            </span>
+                                        </td>
+
+                                        <td>
+                                            {{ line_form.purchase_order_line.quantity_ordered|floatformat:3 }}
+                                        </td>
+
+                                        <td>
+                                            {{ line_form.remaining_quantity|floatformat:3 }}
+                                        </td>
+
+                                        <td>
+                                            {{ line_form.inventory_item }}
+
+                                            {% for error in line_form.inventory_item.errors %}
+                                                <p class="form-error">
+                                                    {{ error }}
+                                                </p>
+                                            {% endfor %}
+                                        </td>
+
+                                        <td>
+                                            {{ line_form.quantity_received }}
+
+                                            {% for error in line_form.quantity_received.errors %}
+                                                <p class="form-error">
+                                                    {{ error }}
+                                                </p>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <div class="form-actions">
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                    >
+                        Cancel
+                    </a>
+
+                    <button
+                        class="button button--primary"
+                        type="submit"
+                    >
+                        Post goods receipt
+                    </button>
+                </div>
+            </form>
+        {% else %}
+            <section class="card">
+                <div class="empty-state">
+                    <h2>All products received</h2>
+
+                    <p>
+                        Every product on this purchase order
+                        has already been fully received.
+                    </p>
+
+                    <a
+                        class="button button--primary"
+                        href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                    >
+                        Return to purchase order
+                    </a>
+                </div>
+            </section>
+        {% endif %}
+    {% else %}
+        <div
+            class="alert alert--error"
+            role="alert"
+        >
+            <p>
+                <strong>
+                    This purchase order cannot be received.
+                </strong>
+            </p>
+
+            <p>
+                Only approved or partially received purchase
+                orders can accept supplier deliveries.
+            </p>
+        </div>
+
+        <div class="form-actions">
+            <a
+                class="button button--secondary"
+                href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+            >
+                Return to purchase order
+            </a>
+        </div>
+    {% endif %}
+{% endblock %}

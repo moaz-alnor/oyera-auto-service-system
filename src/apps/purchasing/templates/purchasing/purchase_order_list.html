@@ -1,0 +1,322 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Purchase orders | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Purchasing management
+            </p>
+
+            <h1>Purchase orders</h1>
+
+            <p class="page-header__description">
+                Review supplier orders, delivery schedules,
+                lifecycle status, products and financial
+                totals.
+            </p>
+        </div>
+
+        <div class="page-actions">
+            {% if perms.purchasing.view_supplier %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_list' %}"
+                >
+                    Suppliers
+                </a>
+            {% endif %}
+
+            {% if perms.purchasing.view_goodsreceipt %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:goods_receipt_list' %}"
+                >
+                    Goods receipts
+                </a>
+            {% endif %}
+
+            {% if perms.purchasing.view_supplierinvoice %}
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:supplier_invoice_list' %}"
+                >
+                    Supplier invoices
+                </a>
+            {% endif %}
+
+            {% if perms.purchasing.add_purchaseorder %}
+                <a
+                    class="button button--primary"
+                    href="{% url 'purchasing:purchase_order_create' %}"
+                >
+                    Create purchase order
+                </a>
+            {% endif %}
+        </div>
+    </header>
+
+    <section class="card">
+        <form
+            class="filter-form"
+            method="get"
+        >
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="purchase-order-search"
+                >
+                    Search
+                </label>
+
+                <input
+                    id="purchase-order-search"
+                    class="form-control"
+                    type="search"
+                    name="q"
+                    value="{{ query }}"
+                    placeholder="Purchase order, supplier, reference, SKU, or product"
+                >
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="purchase-order-status"
+                >
+                    Status
+                </label>
+
+                <select
+                    id="purchase-order-status"
+                    class="form-control"
+                    name="status"
+                >
+                    <option value="">
+                        All statuses
+                    </option>
+
+                    {% for value, label in status_choices %}
+                        <option
+                            value="{{ value }}"
+                            {% if selected_status == value %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label
+                    class="form-label"
+                    for="purchase-order-supplier"
+                >
+                    Supplier
+                </label>
+
+                <select
+                    id="purchase-order-supplier"
+                    class="form-control"
+                    name="supplier"
+                >
+                    <option value="">
+                        All suppliers
+                    </option>
+
+                    {% for supplier in suppliers %}
+                        <option
+                            value="{{ supplier.pk }}"
+                            {% if selected_supplier_id == supplier.pk %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ supplier.supplier_number }}
+                            -
+                            {{ supplier.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply filters
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'purchasing:purchase_order_list' %}"
+                >
+                    Clear
+                </a>
+            </div>
+        </form>
+    </section>
+
+    <section class="card">
+        {% if page.object_list %}
+            <div class="table-wrapper">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th scope="col">
+                                Purchase order
+                            </th>
+
+                            <th scope="col">Supplier</th>
+                            <th scope="col">Reference</th>
+                            <th scope="col">Status</th>
+                            <th scope="col">Products</th>
+                            <th scope="col">
+                                Expected delivery
+                            </th>
+                            <th scope="col">Total</th>
+                            <th scope="col">Created</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for purchase_order in page.object_list %}
+                            <tr>
+                                <td>
+                                    <a
+                                        href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                                    >
+                                        {{ purchase_order.purchase_order_number }}
+                                    </a>
+                                </td>
+
+                                <td>
+                                    {% if perms.purchasing.view_supplier %}
+                                        <a
+                                            href="{% url 'purchasing:supplier_detail' purchase_order.supplier_id %}"
+                                        >
+                                            {{ purchase_order.supplier_name_snapshot }}
+                                        </a>
+                                    {% else %}
+                                        {{ purchase_order.supplier_name_snapshot }}
+                                    {% endif %}
+
+                                    <br>
+
+                                    <span>
+                                        {{ purchase_order.supplier_number_snapshot }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {{ purchase_order.supplier_reference|default:"Not provided" }}
+                                </td>
+
+                                <td>
+                                    <span class="status-badge">
+                                        {{ purchase_order.get_status_display }}
+                                    </span>
+                                </td>
+
+                                <td>
+                                    {{ purchase_order.lines.all|length }}
+                                </td>
+
+                                <td>
+                                    {% if purchase_order.expected_delivery_date %}
+                                        {{ purchase_order.expected_delivery_date|date:"d M Y" }}
+                                    {% else %}
+                                        Not scheduled
+                                    {% endif %}
+                                </td>
+
+                                <td>
+                                    <strong>
+                                        {{ purchase_order.currency }}
+                                        {{ purchase_order.totals.total|floatformat:2 }}
+                                    </strong>
+                                </td>
+
+                                <td>
+                                    {{ purchase_order.created_at|date:"d M Y" }}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if page.paginator.num_pages > 1 %}
+                <nav
+                    class="pagination"
+                    aria-label="Purchase-order pages"
+                >
+                    {% if page.has_previous %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&supplier={{ selected_supplier_id|default_if_none:'' }}&page={{ page.previous_page_number }}"
+                        >
+                            Previous
+                        </a>
+                    {% endif %}
+
+                    <span>
+                        Page {{ page.number }}
+                        of {{ page.paginator.num_pages }}
+                    </span>
+
+                    {% if page.has_next %}
+                        <a
+                            class="button button--secondary"
+                            href="?q={{ query|urlencode }}&status={{ selected_status|urlencode }}&supplier={{ selected_supplier_id|default_if_none:'' }}&page={{ page.next_page_number }}"
+                        >
+                            Next
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                {% if query or selected_status or selected_supplier_id %}
+                    <h2>
+                        No matching purchase orders
+                    </h2>
+
+                    <p>
+                        No purchase orders match the selected
+                        search and filter values.
+                    </p>
+
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'purchasing:purchase_order_list' %}"
+                    >
+                        Clear filters
+                    </a>
+                {% else %}
+                    <h2>No purchase orders created</h2>
+
+                    <p>
+                        Create a draft purchase order and then
+                        add the products requested from the
+                        supplier.
+                    </p>
+
+                    {% if perms.purchasing.add_purchaseorder %}
+                        <a
+                            class="button button--primary"
+                            href="{% url 'purchasing:purchase_order_create' %}"
+                        >
+                            Create purchase order
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+{% endblock %}
