@@ -22,6 +22,9 @@ from apps.reports.forms import ReportDateRangeForm
 from apps.reports.selectors.customer_finance import (
     get_customer_finance_report,
 )
+from apps.reports.selectors.workshop_operations import (
+    get_workshop_operations_report,
+)
 
 
 def _report_form_data(
@@ -117,3 +120,30 @@ def customer_finance_export(
     response["X-Content-Type-Options"] = "nosniff"
 
     return response
+
+
+@employee_permission_required(ReportPermissionName.VIEW_WORKSHOP_REPORT.value)
+def workshop_operations_report(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display vehicle and workshop activity."""
+
+    form = ReportDateRangeForm(_report_form_data(request))
+
+    date_range = form.to_date_range() if form.is_valid() else None
+
+    report = (
+        get_workshop_operations_report(date_range=date_range)
+        if date_range is not None
+        else None
+    )
+
+    return render(
+        request,
+        "reports/workshop_operations.html",
+        {
+            "form": form,
+            "date_range": date_range,
+            "report": report,
+        },
+    )

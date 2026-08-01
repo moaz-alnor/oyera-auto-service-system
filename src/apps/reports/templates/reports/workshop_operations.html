@@ -1,0 +1,452 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Workshop Operations Report | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Operational reports
+            </p>
+
+            <h1>Workshop operations report</h1>
+
+            <p class="page-header__description">
+                Review vehicle intake, job-card activity,
+                workshop progress and vehicle releases
+                during the selected period.
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'reports:index' %}"
+        >
+            Back to reports
+        </a>
+    </header>
+
+    <section class="card">
+        <form method="get">
+            {{ form.non_field_errors }}
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="{{ form.preset.id_for_label }}">
+                        {{ form.preset.label }}
+                    </label>
+
+                    {{ form.preset }}
+
+                    {% for error in form.preset.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.start_date.id_for_label }}">
+                        {{ form.start_date.label }}
+                    </label>
+
+                    {{ form.start_date }}
+
+                    {% for error in form.start_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.end_date.id_for_label }}">
+                        {{ form.end_date.label }}
+                    </label>
+
+                    {{ form.end_date }}
+
+                    {% for error in form.end_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply reporting period
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:workshop_operations' %}"
+                >
+                    Reset
+                </a>
+            </div>
+        </form>
+
+        {% if date_range %}
+            <p>
+                Selected period:
+                <strong>
+                    {{ date_range.start_date|date:"d M Y" }}
+                    to
+                    {{ date_range.end_date|date:"d M Y" }}
+                </strong>
+                ·
+                {{ date_range.day_count }}
+                day{{ date_range.day_count|pluralize }}
+            </p>
+        {% endif %}
+    </section>
+
+    {% if report %}
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Operational summary
+            </p>
+
+            <h2>Workshop activity</h2>
+        </header>
+
+        <section
+            class="dashboard-grid"
+            aria-label="Workshop operations summary"
+        >
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Vehicles received
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.vehicles_received_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Urgent job cards
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.urgent_job_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Cancelled job cards
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.cancelled_job_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Work orders created
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.work_orders_created_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Work orders started
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.work_orders_started_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Work orders completed
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.work_orders_completed_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Vehicles released
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.vehicles_released_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Payment-override releases
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.payment_override_release_count }}
+                </strong>
+            </article>
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Vehicle intake
+            </p>
+
+            <h2>Job cards received during the period</h2>
+        </header>
+
+        <section class="card">
+            {% if report.job_cards %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Job</th>
+                                <th scope="col">Customer</th>
+                                <th scope="col">Vehicle</th>
+                                <th scope="col">Arrival</th>
+                                <th scope="col">Priority</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for job_card in report.job_cards %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'jobs:detail' job_card.pk %}"
+                                        >
+                                            {{ job_card.job_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ job_card.customer_name_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ job_card.vehicle_registration_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ job_card.arrival_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {{ job_card.get_priority_display }}
+                                    </td>
+
+                                    <td>
+                                        {{ job_card.get_status_display }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No vehicle intake activity</h3>
+
+                    <p>
+                        No job cards were opened during
+                        the selected reporting period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Workshop execution
+            </p>
+
+            <h2>Work-order activity</h2>
+        </header>
+
+        <section class="card">
+            {% if report.work_orders %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Work order</th>
+                                <th scope="col">Job</th>
+                                <th scope="col">Vehicle</th>
+                                <th scope="col">Created</th>
+                                <th scope="col">Started</th>
+                                <th scope="col">Completed</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for work_order in report.work_orders %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'workshop:detail' work_order.pk %}"
+                                        >
+                                            {{ work_order.work_order_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        <a
+                                            href="{% url 'jobs:detail' work_order.job_card.pk %}"
+                                        >
+                                            {{ work_order.job_card.job_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ work_order.job_card.vehicle_registration_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ work_order.created_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {% if work_order.started_at %}
+                                            {{ work_order.started_at|date:"d M Y, H:i" }}
+                                        {% else %}
+                                            Not started
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {% if work_order.completed_at %}
+                                            {{ work_order.completed_at|date:"d M Y, H:i" }}
+                                        {% else %}
+                                            Not completed
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ work_order.get_status_display }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No workshop activity</h3>
+
+                    <p>
+                        No work orders were created,
+                        started or completed in the
+                        selected reporting period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Vehicle handover
+            </p>
+
+            <h2>Vehicles released during the period</h2>
+        </header>
+
+        <section class="card">
+            {% if report.releases %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Release</th>
+                                <th scope="col">Job</th>
+                                <th scope="col">Vehicle</th>
+                                <th scope="col">Released</th>
+                                <th scope="col">Received by</th>
+                                <th scope="col">Invoice</th>
+                                <th scope="col">Balance</th>
+                                <th scope="col">Override</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for release in report.releases %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'jobs:release_detail' release.pk %}"
+                                        >
+                                            {{ release.release_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        <a
+                                            href="{% url 'jobs:detail' release.job_card.pk %}"
+                                        >
+                                            {{ release.job_card.job_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ release.job_card.vehicle_registration_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ release.released_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {{ release.received_by_name }}
+                                    </td>
+
+                                    <td>
+                                        {{ release.invoice_number_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ release.invoice_currency_snapshot }}
+                                        {{ release.outstanding_amount_snapshot|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        {% if release.payment_override %}
+                                            Yes
+                                        {% else %}
+                                            No
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No vehicle releases</h3>
+
+                    <p>
+                        No vehicles were released during
+                        the selected reporting period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+{% endblock %}

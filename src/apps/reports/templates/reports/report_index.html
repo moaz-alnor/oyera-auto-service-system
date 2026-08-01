@@ -129,9 +129,12 @@
                     releases.
                 </p>
 
-                <p>
-                    Scheduled for Phase 15B.3.
-                </p>
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:workshop_operations' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+                >
+                    Open workshop operations report
+                </a>
             </article>
         {% endif %}
 
