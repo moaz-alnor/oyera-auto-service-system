@@ -10,13 +10,12 @@
             Operations overview
         </p>
 
-        <h1>
-            Dashboard
-        </h1>
+        <h1>Dashboard</h1>
 
         <p class="page-header__description">
-            Welcome, {{ request.user }}. Operational information will
-            appear here as each business module is implemented.
+            Welcome, {{ request.user }}. Review today's
+            vehicle intake, active jobs and customer
+            invoices awaiting payment.
         </p>
     </header>
 
@@ -30,7 +29,7 @@
             </span>
 
             <strong class="metric-card__value">
-                0
+                {{ metrics.vehicles_received_today }}
             </strong>
         </article>
 
@@ -40,7 +39,7 @@
             </span>
 
             <strong class="metric-card__value">
-                0
+                {{ metrics.open_job_cards }}
             </strong>
         </article>
 
@@ -50,7 +49,7 @@
             </span>
 
             <strong class="metric-card__value">
-                0
+                {{ metrics.invoices_awaiting_payment }}
             </strong>
         </article>
     </section>

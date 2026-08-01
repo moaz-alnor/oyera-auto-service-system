@@ -4,6 +4,10 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render
 
+from apps.core.selectors import (
+    get_operational_dashboard_metrics,
+)
+
 
 @login_required
 def dashboard(request: HttpRequest) -> HttpResponse:
@@ -12,4 +16,7 @@ def dashboard(request: HttpRequest) -> HttpResponse:
     return render(
         request,
         "core/dashboard.html",
+        {
+            "metrics": (get_operational_dashboard_metrics()),
+        },
     )
