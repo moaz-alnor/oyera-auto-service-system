@@ -43,6 +43,9 @@ print(
             "session_cookie_secure": settings.SESSION_COOKIE_SECURE,
             "csrf_cookie_secure": settings.CSRF_COOKIE_SECURE,
             "ssl_redirect": settings.SECURE_SSL_REDIRECT,
+            "secure_proxy_ssl_header": (
+                settings.SECURE_PROXY_SSL_HEADER
+            ),
             "hsts_seconds": settings.SECURE_HSTS_SECONDS,
             "hsts_include_subdomains": (
                 settings.SECURE_HSTS_INCLUDE_SUBDOMAINS
@@ -95,6 +98,7 @@ def test_production_settings_use_safe_hsts_defaults() -> None:
         "session_cookie_secure": True,
         "csrf_cookie_secure": True,
         "ssl_redirect": True,
+        "secure_proxy_ssl_header": None,
         "hsts_seconds": 0,
         "hsts_include_subdomains": False,
         "hsts_preload": False,
@@ -105,6 +109,7 @@ def test_production_settings_read_hsts_environment_values() -> None:
     """Production should parse explicit HSTS deployment configuration."""
     settings = _read_production_settings(
         DJANGO_ALLOWED_HOSTS=(" oyera.example.com, admin.oyera.example.com "),
+        DJANGO_TRUST_X_FORWARDED_PROTO=" TrUe ",
         DJANGO_SECURE_HSTS_SECONDS="31536000",
         DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS=" TrUe ",
         DJANGO_SECURE_HSTS_PRELOAD="true",
@@ -113,6 +118,10 @@ def test_production_settings_read_hsts_environment_values() -> None:
     assert settings["allowed_hosts"] == [
         "oyera.example.com",
         "admin.oyera.example.com",
+    ]
+    assert settings["secure_proxy_ssl_header"] == [
+        "HTTP_X_FORWARDED_PROTO",
+        "https",
     ]
     assert settings["hsts_seconds"] == 31536000
     assert settings["hsts_include_subdomains"] is True

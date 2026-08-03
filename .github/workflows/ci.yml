@@ -60,6 +60,7 @@ jobs:
           cache: pip
           cache-dependency-path: |
             requirements/base.txt
+            requirements/production.txt
             requirements/development.txt
 
       - name: Install dependencies
@@ -68,10 +69,10 @@ jobs:
           python -m pip install -r requirements/development.txt
 
       - name: Run Ruff linting
-        run: ruff check src
+        run: ruff check src tests gunicorn.conf.py
 
       - name: Check Ruff formatting
-        run: ruff format --check src
+        run: ruff format --check src tests gunicorn.conf.py
 
       - name: Check migration drift
         run: |
