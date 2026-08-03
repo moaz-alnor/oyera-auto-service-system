@@ -82,8 +82,12 @@ def test_authorized_roles_open_inventory_report(
 
     response = client.get(reverse("reports:inventory_activity"))
 
+    content = response.content.decode()
+
     assert response.status_code == 200
-    assert "Inventory activity report" in response.content.decode()
+    assert "Inventory activity report" in content
+    assert "Export CSV" in content
+    assert reverse("reports:inventory_activity_export") in content
 
 
 @pytest.mark.django_db
