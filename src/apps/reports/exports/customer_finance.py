@@ -1,49 +1,16 @@
 """CSV serialization for customer finance reports."""
 
 import csv
-from datetime import datetime
 from io import StringIO
 
-from django.utils import timezone
-
 from apps.reports.date_ranges import ReportDateRange
+from apps.reports.exports.common import (
+    format_local_datetime,
+    safe_csv_text,
+)
 from apps.reports.selectors.customer_finance import (
     CustomerFinanceReport,
 )
-
-_DANGEROUS_CELL_PREFIXES = (
-    "=",
-    "+",
-    "-",
-    "@",
-    "\t",
-    "\r",
-)
-
-
-def _safe_csv_text(value: object) -> str:
-    """Protect text cells from spreadsheet formulas."""
-
-    text = str(value)
-
-    if text.startswith(_DANGEROUS_CELL_PREFIXES):
-        return f"'{text}"
-
-    return text
-
-
-def _format_datetime(
-    value: datetime | None,
-) -> str:
-    """Return a stable local datetime for CSV output."""
-
-    if value is None:
-        return ""
-
-    if timezone.is_aware(value):
-        value = timezone.localtime(value)
-
-    return value.strftime("%Y-%m-%d %H:%M:%S")
 
 
 def customer_finance_csv_filename(
@@ -168,12 +135,12 @@ def build_customer_finance_csv(
 
         writer.writerow(
             [
-                _safe_csv_text(invoice.invoice_number),
-                _safe_csv_text(invoice.customer_name_snapshot),
-                _safe_csv_text(invoice.vehicle_registration_snapshot),
-                _format_datetime(invoice.issued_at),
+                safe_csv_text(invoice.invoice_number),
+                safe_csv_text(invoice.customer_name_snapshot),
+                safe_csv_text(invoice.vehicle_registration_snapshot),
+                format_local_datetime(invoice.issued_at),
                 (invoice.due_date.isoformat() if invoice.due_date else ""),
-                _safe_csv_text(status_display),
+                safe_csv_text(status_display),
                 "Yes" if row.is_overdue else "No",
                 invoice.currency,
                 f"{invoice.total:.2f}",

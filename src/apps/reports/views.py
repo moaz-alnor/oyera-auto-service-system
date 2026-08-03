@@ -18,6 +18,10 @@ from apps.reports.exports.customer_finance import (
     build_customer_finance_csv,
     customer_finance_csv_filename,
 )
+from apps.reports.exports.workshop_operations import (
+    build_workshop_operations_csv,
+    workshop_operations_csv_filename,
+)
 from apps.reports.forms import ReportDateRangeForm
 from apps.reports.selectors.customer_finance import (
     get_customer_finance_report,
@@ -147,3 +151,38 @@ def workshop_operations_report(
             "report": report,
         },
     )
+
+
+@employee_permission_required(ReportPermissionName.EXPORT_REPORTS.value)
+@employee_permission_required(ReportPermissionName.VIEW_WORKSHOP_REPORT.value)
+def workshop_operations_export(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Download the filtered workshop report."""
+
+    form = ReportDateRangeForm(_report_form_data(request))
+
+    if not form.is_valid():
+        return HttpResponseBadRequest(
+            "Invalid workshop operations report filters.",
+            content_type=("text/plain; charset=utf-8"),
+        )
+
+    date_range = form.to_date_range()
+
+    report = get_workshop_operations_report(date_range=date_range)
+
+    filename = workshop_operations_csv_filename(date_range=date_range)
+
+    response = HttpResponse(
+        build_workshop_operations_csv(
+            report=report,
+            date_range=date_range,
+        ),
+        content_type=("text/csv; charset=utf-8"),
+    )
+
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["X-Content-Type-Options"] = "nosniff"
+
+    return response

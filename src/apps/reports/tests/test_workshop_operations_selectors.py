@@ -35,8 +35,13 @@ def test_workshop_report_calculates_activity(
     """Calculate intake, workflow, and release activity."""
 
     context = workshop_execution_context
-    now = timezone.now()
-    today = timezone.localdate()
+    event_time = timezone.localtime(timezone.now()).replace(
+        hour=12,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    today = event_time.date()
 
     JobCard.objects.filter(pk=context.job_card.pk).update(
         priority=JobPriority.URGENT,
@@ -45,8 +50,8 @@ def test_workshop_report_calculates_activity(
 
     WorkOrder.objects.filter(pk=context.work_order.pk).update(
         status=WorkOrderStatus.COMPLETED,
-        started_at=(now - timedelta(hours=3)),
-        completed_at=(now - timedelta(hours=1)),
+        started_at=event_time,
+        completed_at=(event_time + timedelta(hours=1)),
     )
 
     context.job_card.refresh_from_db()
@@ -54,7 +59,7 @@ def test_workshop_report_calculates_activity(
     release = VehicleRelease.objects.create(
         release_number="REL-REPORT-001",
         job_card=context.job_card,
-        released_at=now,
+        released_at=(event_time + timedelta(hours=2)),
         final_mileage=(context.job_card.arrival_mileage),
         final_condition="Vehicle released.",
         received_by_name="Daniel Kato",

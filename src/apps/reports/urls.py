@@ -27,4 +27,9 @@ urlpatterns = [
         views.workshop_operations_report,
         name="workshop_operations",
     ),
+    path(
+        "workshop-operations/export.csv",
+        views.workshop_operations_export,
+        name="workshop_operations_export",
+    ),
 ]

@@ -63,16 +63,17 @@ def test_workshop_report_requires_login(
 
 @pytest.mark.django_db
 @pytest.mark.parametrize(
-    "role",
+    ("role", "shows_export"),
     (
-        RoleName.MANAGER,
-        RoleName.RECEPTIONIST,
-        RoleName.SENIOR_TECHNICIAN,
+        (RoleName.MANAGER, True),
+        (RoleName.RECEPTIONIST, False),
+        (RoleName.SENIOR_TECHNICIAN, False),
     ),
 )
 def test_authorized_roles_open_workshop_report(
     client,
     role: RoleName,
+    shows_export: bool,
 ) -> None:
     """Allow approved roles to view workshop reports."""
 
