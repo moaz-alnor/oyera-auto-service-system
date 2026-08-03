@@ -29,7 +29,30 @@ DATABASES = {
 }
 
 
-# Enable these only when HTTPS has been configured correctly.
+# HTTPS security settings.
+#
+# HSTS remains environment-controlled so that it can be introduced gradually
+# after HTTPS, proxy handling, domains, and subdomains have been verified.
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_SSL_REDIRECT = True
+
+SECURE_HSTS_SECONDS = int(os.environ.get("DJANGO_SECURE_HSTS_SECONDS", "0"))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = (
+    os.environ.get(
+        "DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS",
+        "false",
+    )
+    .strip()
+    .lower()
+    == "true"
+)
+SECURE_HSTS_PRELOAD = (
+    os.environ.get(
+        "DJANGO_SECURE_HSTS_PRELOAD",
+        "false",
+    )
+    .strip()
+    .lower()
+    == "true"
+)
