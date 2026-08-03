@@ -6,6 +6,7 @@ from django.http import (
     HttpResponseBadRequest,
 )
 from django.shortcuts import render
+from django.utils import timezone
 
 from apps.accounts.decorators import (
     employee_permission_required,
@@ -32,6 +33,9 @@ from apps.reports.selectors.customer_finance import (
 )
 from apps.reports.selectors.inventory_activity import (
     get_inventory_activity_report,
+)
+from apps.reports.selectors.purchasing_activity import (
+    get_purchasing_activity_report,
 )
 from apps.reports.selectors.workshop_operations import (
     get_workshop_operations_report,
@@ -255,3 +259,36 @@ def inventory_activity_export(
     response["X-Content-Type-Options"] = "nosniff"
 
     return response
+
+
+@employee_permission_required(ReportPermissionName.VIEW_PURCHASING_REPORT.value)
+def purchasing_activity_report(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display Purchasing activity and liabilities."""
+
+    form = ReportDateRangeForm(_report_form_data(request))
+
+    date_range = form.to_date_range() if form.is_valid() else None
+
+    as_of_date = timezone.localdate()
+
+    report = (
+        get_purchasing_activity_report(
+            date_range=date_range,
+            as_of_date=as_of_date,
+        )
+        if date_range is not None
+        else None
+    )
+
+    return render(
+        request,
+        "reports/purchasing_activity.html",
+        {
+            "form": form,
+            "date_range": date_range,
+            "as_of_date": as_of_date,
+            "report": report,
+        },
+    )

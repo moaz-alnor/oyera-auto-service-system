@@ -83,6 +83,7 @@ def test_manager_sees_all_report_categories(
     assert "Inventory report" in content
     assert reverse("reports:inventory_activity") in content
     assert "Purchasing report" in content
+    assert reverse("reports:purchasing_activity") in content
 
 
 @pytest.mark.django_db
@@ -101,6 +102,7 @@ def test_cashier_sees_financial_reports(
     assert response.status_code == 200
     assert "Customer finance report" in content
     assert "Purchasing report" in content
+    assert reverse("reports:purchasing_activity") in content
     assert "Workshop operations report" not in content
     assert "Inventory report" not in content
 

@@ -11,6 +11,8 @@ from decimal import Decimal
 
 from django.db.models import (
     DecimalField,
+    ExpressionWrapper,
+    F,
     Q,
     Sum,
     Value,
@@ -129,6 +131,18 @@ def _invoice_outstanding_amount(
     supplier_invoice: SupplierInvoice,
 ) -> Decimal:
     """Return one annotated invoice balance."""
+
+    annotated_outstanding = getattr(
+        supplier_invoice,
+        "outstanding_amount",
+        None,
+    )
+
+    if annotated_outstanding is not None:
+        return max(
+            annotated_outstanding,
+            Decimal("0.00"),
+        )
 
     posted_payment_total = getattr(
         supplier_invoice,
@@ -278,6 +292,12 @@ def get_purchasing_activity_report(
                     Decimal("0.00"),
                     output_field=_MONEY_FIELD,
                 ),
+                output_field=_MONEY_FIELD,
+            )
+        )
+        .annotate(
+            outstanding_amount=ExpressionWrapper(
+                F("total") - F("posted_payment_total"),
                 output_field=_MONEY_FIELD,
             )
         )

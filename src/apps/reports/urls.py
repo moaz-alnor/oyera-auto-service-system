@@ -42,4 +42,9 @@ urlpatterns = [
         views.inventory_activity_export,
         name="inventory_activity_export",
     ),
+    path(
+        "purchasing-activity/",
+        views.purchasing_activity_report,
+        name="purchasing_activity",
+    ),
 ]

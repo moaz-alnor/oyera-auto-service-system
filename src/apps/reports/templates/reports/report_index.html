@@ -166,9 +166,12 @@
                     liabilities.
                 </p>
 
-                <p>
-                    Scheduled for Phase 15B.4.
-                </p>
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:purchasing_activity' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+                >
+                    Open purchasing activity report
+                </a>
             </article>
         {% endif %}
     </div>
