@@ -18,6 +18,19 @@
             Dashboard
         </a>
 
+        {% if perms.reports.access_reports %}
+            <a
+                class="sidebar-nav__link
+                    {% if request.resolver_match.app_name == 'reports' %}
+                        sidebar-nav__link--active
+                    {% endif %}
+                "
+                href="{% url 'reports:index' %}"
+            >
+                Reports
+            </a>
+        {% endif %}
+
         {% if perms.customers.view_customer %}
             <a
                 class="sidebar-nav__link

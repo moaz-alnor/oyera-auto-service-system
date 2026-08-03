@@ -1,0 +1,345 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Customer Finance Report | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Operational reports
+            </p>
+
+            <h1>Customer finance report</h1>
+
+            <p class="page-header__description">
+                Review issued invoices, posted payments,
+                outstanding customer balances and overdue
+                receivables.
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'reports:index' %}"
+        >
+            Back to reports
+        </a>
+    </header>
+
+    <section class="card">
+        <form method="get">
+            {{ form.non_field_errors }}
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="{{ form.preset.id_for_label }}">
+                        {{ form.preset.label }}
+                    </label>
+
+                    {{ form.preset }}
+
+                    {% for error in form.preset.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.start_date.id_for_label }}">
+                        {{ form.start_date.label }}
+                    </label>
+
+                    {{ form.start_date }}
+
+                    {% for error in form.start_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.end_date.id_for_label }}">
+                        {{ form.end_date.label }}
+                    </label>
+
+                    {{ form.end_date }}
+
+                    {% for error in form.end_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply reporting period
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:customer_finance' %}"
+                >
+                    Reset
+                </a>
+
+                {% if perms.reports.export_reports and date_range %}
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'reports:customer_finance_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% else %}?preset=THIS_MONTH{% endif %}"
+                    >
+                        Export CSV
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+
+        {% if date_range %}
+            <p>
+                Selected period:
+                <strong>
+                    {{ date_range.start_date|date:"d M Y" }}
+                    to
+                    {{ date_range.end_date|date:"d M Y" }}
+                </strong>
+                ·
+                {{ date_range.day_count }}
+                day{{ date_range.day_count|pluralize }}
+            </p>
+        {% endif %}
+    </section>
+
+    {% if report %}
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Financial summary
+            </p>
+
+            <h2>Customer receivables</h2>
+        </header>
+
+        <section
+            class="dashboard-grid"
+            aria-label="Customer finance summary"
+        >
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Issued invoices
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.invoice_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Invoice total
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.currency }}
+                    {{ report.summary.invoice_total|floatformat:2 }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Posted payments
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.currency }}
+                    {{ report.summary.posted_payment_total|floatformat:2 }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Outstanding balance
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.currency }}
+                    {{ report.summary.outstanding_balance|floatformat:2 }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Paid invoices
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.paid_invoice_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Partially paid invoices
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.partially_paid_invoice_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Overdue invoices
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.overdue_invoice_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Voided invoices
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.voided_invoice_count }}
+                </strong>
+            </article>
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Audit detail
+            </p>
+
+            <h2>Invoices issued during the period</h2>
+
+            <p class="page-header__description">
+                Posted payments include all valid payments
+                recorded against each listed invoice.
+            </p>
+        </header>
+
+        <section class="card">
+            {% if report.invoices %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">
+                                    Invoice
+                                </th>
+
+                                <th scope="col">
+                                    Customer
+                                </th>
+
+                                <th scope="col">
+                                    Vehicle
+                                </th>
+
+                                <th scope="col">
+                                    Issued
+                                </th>
+
+                                <th scope="col">
+                                    Due
+                                </th>
+
+                                <th scope="col">
+                                    Status
+                                </th>
+
+                                <th scope="col">
+                                    Total
+                                </th>
+
+                                <th scope="col">
+                                    Paid
+                                </th>
+
+                                <th scope="col">
+                                    Outstanding
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for row in report.invoices %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'billing:detail' row.invoice.pk %}"
+                                        >
+                                            {{ row.invoice.invoice_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ row.invoice.customer_name_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ row.invoice.vehicle_registration_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ row.invoice.issued_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {% if row.invoice.due_date %}
+                                            {{ row.invoice.due_date|date:"d M Y" }}
+                                        {% else %}
+                                            Not set
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ row.invoice.get_status_display }}
+
+                                        {% if row.is_overdue %}
+                                            · Overdue
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ row.invoice.currency }}
+                                        {{ row.invoice.total|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        {{ row.invoice.currency }}
+                                        {{ row.paid_amount|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        {{ row.invoice.currency }}
+                                        {{ row.outstanding_amount|floatformat:2 }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No invoice activity</h3>
+
+                    <p>
+                        No issued or voided customer
+                        invoices were found in the selected
+                        reporting period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+{% endblock %}

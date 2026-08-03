@@ -1,0 +1,714 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Purchasing Activity Report | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Operational reports
+            </p>
+
+            <h1>Purchasing activity report</h1>
+
+            <p class="page-header__description">
+                Review purchase-order activity, supplier
+                deliveries, invoices, payments and current
+                supplier liabilities.
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'reports:index' %}"
+        >
+            Back to reports
+        </a>
+    </header>
+
+    <section class="card">
+        <form method="get">
+            {{ form.non_field_errors }}
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="{{ form.preset.id_for_label }}">
+                        {{ form.preset.label }}
+                    </label>
+
+                    {{ form.preset }}
+
+                    {% for error in form.preset.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.start_date.id_for_label }}">
+                        {{ form.start_date.label }}
+                    </label>
+
+                    {{ form.start_date }}
+
+                    {% for error in form.start_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.end_date.id_for_label }}">
+                        {{ form.end_date.label }}
+                    </label>
+
+                    {{ form.end_date }}
+
+                    {% for error in form.end_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply reporting period
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:purchasing_activity' %}"
+                >
+                    Reset
+                </a>
+
+                {% if perms.reports.export_reports and date_range %}
+                    <a
+                        class="button button--secondary"
+                        href="{% url 'reports:purchasing_activity_export' %}{% if request.GET %}?{{ request.GET.urlencode }}{% else %}?preset=THIS_MONTH{% endif %}"
+                    >
+                        Export CSV
+                    </a>
+                {% endif %}
+            </div>
+        </form>
+
+        {% if date_range %}
+            <p>
+                Selected period:
+                <strong>
+                    {{ date_range.start_date|date:"d M Y" }}
+                    to
+                    {{ date_range.end_date|date:"d M Y" }}
+                </strong>
+                ·
+                {{ date_range.day_count }}
+                day{{ date_range.day_count|pluralize }}
+            </p>
+        {% endif %}
+    </section>
+
+    {% if report %}
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Period activity
+            </p>
+
+            <h2>Purchasing lifecycle activity</h2>
+        </header>
+
+        <section
+            class="dashboard-grid"
+            aria-label="Purchasing activity summary"
+        >
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Purchase orders created
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.purchase_orders_created_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Purchase orders submitted
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.purchase_orders_submitted_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Purchase orders approved
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.purchase_orders_approved_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Purchase orders cancelled
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.purchase_orders_cancelled_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Goods receipts posted
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.goods_receipts_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Supplier invoices posted
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.supplier_invoices_posted_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Supplier invoices voided
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.supplier_invoices_voided_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Supplier payments posted
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.supplier_payments_posted_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Supplier payments voided
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.supplier_payments_voided_count }}
+                </strong>
+            </article>
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Financial summary
+            </p>
+
+            <h2>Payments and current liabilities</h2>
+
+            <p class="page-header__description">
+                Payment totals cover the selected period.
+                Open invoices, outstanding liabilities and
+                overdue invoices are current as of
+                {{ as_of_date|date:"d M Y" }}.
+            </p>
+        </header>
+
+        <section
+            class="dashboard-grid"
+            aria-label="Supplier liability summary"
+        >
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Supplier payments during period
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.currency }}
+                    {{ report.summary.supplier_payment_total|floatformat:2 }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Current open supplier invoices
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.current_open_invoice_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Current outstanding liability
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.currency }}
+                    {{ report.summary.current_outstanding_liability|floatformat:2 }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Current overdue supplier invoices
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.current_overdue_invoice_count }}
+                </strong>
+            </article>
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Purchase orders
+            </p>
+
+            <h2>Orders with activity during the period</h2>
+        </header>
+
+        <section class="card">
+            {% if report.purchase_orders %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Order</th>
+                                <th scope="col">Supplier</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Created</th>
+                                <th scope="col">Submitted</th>
+                                <th scope="col">Approved</th>
+                                <th scope="col">Cancelled</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for purchase_order in report.purchase_orders %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:purchase_order_detail' purchase_order.pk %}"
+                                        >
+                                            {{ purchase_order.purchase_order_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ purchase_order.supplier_name_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ purchase_order.get_status_display }}
+                                    </td>
+
+                                    <td>
+                                        {{ purchase_order.created_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {% if purchase_order.submitted_at %}
+                                            {{ purchase_order.submitted_at|date:"d M Y, H:i" }}
+                                        {% else %}
+                                            Not submitted
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {% if purchase_order.approved_at %}
+                                            {{ purchase_order.approved_at|date:"d M Y, H:i" }}
+                                        {% else %}
+                                            Not approved
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {% if purchase_order.cancelled_at %}
+                                            {{ purchase_order.cancelled_at|date:"d M Y, H:i" }}
+                                        {% else %}
+                                            Not cancelled
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No purchase-order activity</h3>
+
+                    <p>
+                        No purchase orders were created,
+                        submitted, approved or cancelled
+                        during the selected period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Supplier deliveries
+            </p>
+
+            <h2>Goods receipts during the period</h2>
+        </header>
+
+        <section class="card">
+            {% if report.goods_receipts %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Receipt</th>
+                                <th scope="col">Purchase order</th>
+                                <th scope="col">Supplier</th>
+                                <th scope="col">Received</th>
+                                <th scope="col">Delivery reference</th>
+                                <th scope="col">Received by</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for goods_receipt in report.goods_receipts %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:goods_receipt_detail' goods_receipt.pk %}"
+                                        >
+                                            {{ goods_receipt.goods_receipt_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:purchase_order_detail' goods_receipt.purchase_order.pk %}"
+                                        >
+                                            {{ goods_receipt.purchase_order_number_snapshot }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ goods_receipt.supplier_name_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ goods_receipt.received_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {% if goods_receipt.supplier_delivery_reference %}
+                                            {{ goods_receipt.supplier_delivery_reference }}
+                                        {% else %}
+                                            Not recorded
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ goods_receipt.received_by.username }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No goods receipts</h3>
+
+                    <p>
+                        No supplier deliveries were posted
+                        during the selected period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Supplier invoices
+            </p>
+
+            <h2>Invoice activity during the period</h2>
+        </header>
+
+        <section class="card">
+            {% if report.supplier_invoices %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Invoice</th>
+                                <th scope="col">Supplier</th>
+                                <th scope="col">Purchase order</th>
+                                <th scope="col">Invoice date</th>
+                                <th scope="col">Due date</th>
+                                <th scope="col">Total</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for supplier_invoice in report.supplier_invoices %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:supplier_invoice_detail' supplier_invoice.pk %}"
+                                        >
+                                            {{ supplier_invoice.supplier_invoice_number }}
+                                        </a>
+                                        <br>
+                                        {{ supplier_invoice.supplier_reference }}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.supplier_name_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:purchase_order_detail' supplier_invoice.purchase_order.pk %}"
+                                        >
+                                            {{ supplier_invoice.purchase_order_number_snapshot }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.invoice_date|date:"d M Y" }}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.due_date|date:"d M Y" }}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.currency }}
+                                        {{ supplier_invoice.total|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.get_status_display }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No supplier-invoice activity</h3>
+
+                    <p>
+                        No supplier invoices were dated,
+                        posted or voided during the selected
+                        period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Supplier payments
+            </p>
+
+            <h2>Payment activity during the period</h2>
+        </header>
+
+        <section class="card">
+            {% if report.supplier_payments %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Payment</th>
+                                <th scope="col">Supplier invoice</th>
+                                <th scope="col">Supplier</th>
+                                <th scope="col">Paid</th>
+                                <th scope="col">Amount</th>
+                                <th scope="col">Method</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Reference</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for payment in report.supplier_payments %}
+                                <tr>
+                                    <td>
+                                        {{ payment.payment_number }}
+                                    </td>
+
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:supplier_invoice_detail' payment.supplier_invoice.pk %}"
+                                        >
+                                            {{ payment.supplier_invoice.supplier_invoice_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ payment.supplier_invoice.supplier_name_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ payment.paid_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {{ payment.currency }}
+                                        {{ payment.amount|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        {{ payment.get_method_display }}
+                                    </td>
+
+                                    <td>
+                                        {{ payment.get_status_display }}
+                                    </td>
+
+                                    <td>
+                                        {% if payment.external_reference %}
+                                            {{ payment.external_reference }}
+                                        {% else %}
+                                            Not recorded
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No supplier-payment activity</h3>
+
+                    <p>
+                        No supplier payments were posted or
+                        voided during the selected period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Current liability
+            </p>
+
+            <h2>Open supplier invoices</h2>
+
+            <p class="page-header__description">
+                This section is a current liability
+                snapshot as of
+                {{ as_of_date|date:"d M Y" }}.
+                It is not a historical balance for the
+                selected period.
+            </p>
+        </header>
+
+        <section class="card">
+            {% if report.open_supplier_invoices %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">Invoice</th>
+                                <th scope="col">Supplier</th>
+                                <th scope="col">Due date</th>
+                                <th scope="col">Status</th>
+                                <th scope="col">Total</th>
+                                <th scope="col">Paid</th>
+                                <th scope="col">Outstanding</th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for supplier_invoice in report.open_supplier_invoices %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'purchasing:supplier_invoice_detail' supplier_invoice.pk %}"
+                                        >
+                                            {{ supplier_invoice.supplier_invoice_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.supplier_name_snapshot }}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.due_date|date:"d M Y" }}
+
+                                        {% if supplier_invoice.due_date < as_of_date %}
+                                            <br>
+                                            <strong>Overdue</strong>
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.get_status_display }}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.currency }}
+                                        {{ supplier_invoice.total|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        {{ supplier_invoice.currency }}
+                                        {{ supplier_invoice.posted_payment_total|floatformat:2 }}
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            {{ supplier_invoice.currency }}
+                                            {{ supplier_invoice.outstanding_amount|floatformat:2 }}
+                                        </strong>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No open supplier invoices</h3>
+
+                    <p>
+                        There are currently no posted
+                        supplier invoices with an
+                        outstanding balance.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+{% endblock %}
