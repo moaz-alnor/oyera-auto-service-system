@@ -47,4 +47,9 @@ urlpatterns = [
         views.purchasing_activity_report,
         name="purchasing_activity",
     ),
+    path(
+        "purchasing-activity/export.csv",
+        views.purchasing_activity_export,
+        name="purchasing_activity_export",
+    ),
 ]

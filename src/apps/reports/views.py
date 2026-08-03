@@ -23,6 +23,10 @@ from apps.reports.exports.inventory_activity import (
     build_inventory_activity_csv,
     inventory_activity_csv_filename,
 )
+from apps.reports.exports.purchasing_activity import (
+    build_purchasing_activity_csv,
+    purchasing_activity_csv_filename,
+)
 from apps.reports.exports.workshop_operations import (
     build_workshop_operations_csv,
     workshop_operations_csv_filename,
@@ -292,3 +296,43 @@ def purchasing_activity_report(
             "report": report,
         },
     )
+
+
+@employee_permission_required(ReportPermissionName.EXPORT_REPORTS.value)
+@employee_permission_required(ReportPermissionName.VIEW_PURCHASING_REPORT.value)
+def purchasing_activity_export(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Download the filtered Purchasing report."""
+
+    form = ReportDateRangeForm(_report_form_data(request))
+
+    if not form.is_valid():
+        return HttpResponseBadRequest(
+            "Invalid Purchasing activity report filters.",
+            content_type=("text/plain; charset=utf-8"),
+        )
+
+    date_range = form.to_date_range()
+    as_of_date = timezone.localdate()
+
+    report = get_purchasing_activity_report(
+        date_range=date_range,
+        as_of_date=as_of_date,
+    )
+
+    filename = purchasing_activity_csv_filename(date_range=date_range)
+
+    response = HttpResponse(
+        build_purchasing_activity_csv(
+            report=report,
+            date_range=date_range,
+            as_of_date=as_of_date,
+        ),
+        content_type=("text/csv; charset=utf-8"),
+    )
+
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["X-Content-Type-Options"] = "nosniff"
+
+    return response

@@ -257,5 +257,8 @@ def test_purchasing_report_uses_five_queries(
         assert report.open_supplier_invoices[0].posted_payment_total == Decimal(
             "40000.00"
         )
+        assert report.open_supplier_invoices[0].outstanding_amount == Decimal(
+            "60000.00"
+        )
 
     assert report.summary.current_outstanding_liability == Decimal("60000.00")

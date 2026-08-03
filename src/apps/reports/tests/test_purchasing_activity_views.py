@@ -83,8 +83,12 @@ def test_authorized_roles_open_purchasing_report(
 
     response = client.get(reverse("reports:purchasing_activity"))
 
+    content = response.content.decode()
+
     assert response.status_code == 200
-    assert "Purchasing activity report" in response.content.decode()
+    assert "Purchasing activity report" in content
+    assert "Export CSV" in content
+    assert reverse("reports:purchasing_activity_export") in content
 
 
 @pytest.mark.django_db
