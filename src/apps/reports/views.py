@@ -26,6 +26,9 @@ from apps.reports.forms import ReportDateRangeForm
 from apps.reports.selectors.customer_finance import (
     get_customer_finance_report,
 )
+from apps.reports.selectors.inventory_activity import (
+    get_inventory_activity_report,
+)
 from apps.reports.selectors.workshop_operations import (
     get_workshop_operations_report,
 )
@@ -186,3 +189,30 @@ def workshop_operations_export(
     response["X-Content-Type-Options"] = "nosniff"
 
     return response
+
+
+@employee_permission_required(ReportPermissionName.VIEW_INVENTORY_REPORT.value)
+def inventory_activity_report(
+    request: HttpRequest,
+) -> HttpResponse:
+    """Display Inventory movement and stock-risk activity."""
+
+    form = ReportDateRangeForm(_report_form_data(request))
+
+    date_range = form.to_date_range() if form.is_valid() else None
+
+    report = (
+        get_inventory_activity_report(date_range=date_range)
+        if date_range is not None
+        else None
+    )
+
+    return render(
+        request,
+        "reports/inventory_activity.html",
+        {
+            "form": form,
+            "date_range": date_range,
+            "report": report,
+        },
+    )

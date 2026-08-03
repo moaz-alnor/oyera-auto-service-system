@@ -32,4 +32,9 @@ urlpatterns = [
         views.workshop_operations_export,
         name="workshop_operations_export",
     ),
+    path(
+        "inventory-activity/",
+        views.inventory_activity_report,
+        name="inventory_activity",
+    ),
 ]

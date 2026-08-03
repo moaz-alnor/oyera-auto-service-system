@@ -1,0 +1,428 @@
+{% extends "layouts/app.html" %}
+
+{% block title %}
+    Inventory Activity Report | Oyera Auto Service
+{% endblock %}
+
+{% block app_content %}
+    <header class="page-header page-header--actions">
+        <div>
+            <p class="page-header__eyebrow">
+                Operational reports
+            </p>
+
+            <h1>Inventory activity report</h1>
+
+            <p class="page-header__description">
+                Review stock movements during the selected
+                period and identify inventory items that
+                currently require replenishment.
+            </p>
+        </div>
+
+        <a
+            class="button button--secondary"
+            href="{% url 'reports:index' %}"
+        >
+            Back to reports
+        </a>
+    </header>
+
+    <section class="card">
+        <form method="get">
+            {{ form.non_field_errors }}
+
+            <div class="form-grid">
+                <div class="form-field">
+                    <label for="{{ form.preset.id_for_label }}">
+                        {{ form.preset.label }}
+                    </label>
+
+                    {{ form.preset }}
+
+                    {% for error in form.preset.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.start_date.id_for_label }}">
+                        {{ form.start_date.label }}
+                    </label>
+
+                    {{ form.start_date }}
+
+                    {% for error in form.start_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+
+                <div class="form-field">
+                    <label for="{{ form.end_date.id_for_label }}">
+                        {{ form.end_date.label }}
+                    </label>
+
+                    {{ form.end_date }}
+
+                    {% for error in form.end_date.errors %}
+                        <p class="form-error">
+                            {{ error }}
+                        </p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button
+                    class="button button--primary"
+                    type="submit"
+                >
+                    Apply reporting period
+                </button>
+
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:inventory_activity' %}"
+                >
+                    Reset
+                </a>
+            </div>
+        </form>
+
+        {% if date_range %}
+            <p>
+                Selected period:
+                <strong>
+                    {{ date_range.start_date|date:"d M Y" }}
+                    to
+                    {{ date_range.end_date|date:"d M Y" }}
+                </strong>
+                ·
+                {{ date_range.day_count }}
+                day{{ date_range.day_count|pluralize }}
+            </p>
+        {% endif %}
+    </section>
+
+    {% if report %}
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Movement summary
+            </p>
+
+            <h2>Inventory activity</h2>
+        </header>
+
+        <section
+            class="dashboard-grid"
+            aria-label="Inventory activity summary"
+        >
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Stock movements
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.movement_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Inventory items moved
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.items_moved_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Stock receipts
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.receipt_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Workshop issues
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.issue_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Workshop returns
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.return_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Positive adjustments
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.positive_adjustment_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Negative adjustments
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.negative_adjustment_count }}
+                </strong>
+            </article>
+
+            <article class="metric-card">
+                <span class="metric-card__label">
+                    Current low-stock items
+                </span>
+
+                <strong class="metric-card__value">
+                    {{ report.summary.low_stock_item_count }}
+                </strong>
+            </article>
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Stock ledger
+            </p>
+
+            <h2>Movements during the selected period</h2>
+
+            <p class="page-header__description">
+                Quantities are shown with their ledger
+                direction: positive for receipts, returns
+                and positive adjustments, and negative for
+                issues and negative adjustments.
+            </p>
+        </header>
+
+        <section class="card">
+            {% if report.movements %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">
+                                    Movement
+                                </th>
+
+                                <th scope="col">
+                                    Product
+                                </th>
+
+                                <th scope="col">
+                                    Location
+                                </th>
+
+                                <th scope="col">
+                                    Occurred
+                                </th>
+
+                                <th scope="col">
+                                    Type
+                                </th>
+
+                                <th scope="col">
+                                    Quantity
+                                </th>
+
+                                <th scope="col">
+                                    Reference
+                                </th>
+
+                                <th scope="col">
+                                    Recorded by
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for movement in report.movements %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'inventory:detail' movement.inventory_item.pk %}"
+                                        >
+                                            {{ movement.movement_number }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        <strong>
+                                            {{ movement.inventory_item.product.sku }}
+                                        </strong>
+                                        <br>
+                                        {{ movement.inventory_item.product.name }}
+                                    </td>
+
+                                    <td>
+                                        {{ movement.inventory_item.location.code }}
+                                        <br>
+                                        {{ movement.inventory_item.location.name }}
+                                    </td>
+
+                                    <td>
+                                        {{ movement.occurred_at|date:"d M Y, H:i" }}
+                                    </td>
+
+                                    <td>
+                                        {{ movement.get_movement_type_display }}
+                                    </td>
+
+                                    <td>
+                                        {{ movement.signed_quantity|floatformat:3 }}
+                                    </td>
+
+                                    <td>
+                                        {% if movement.external_reference %}
+                                            {{ movement.external_reference }}
+                                        {% else %}
+                                            Not recorded
+                                        {% endif %}
+                                    </td>
+
+                                    <td>
+                                        {{ movement.created_by.username }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No stock movement activity</h3>
+
+                    <p>
+                        No stock movements occurred during
+                        the selected reporting period.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+
+        <header class="page-header">
+            <p class="page-header__eyebrow">
+                Current stock risk
+            </p>
+
+            <h2>Items at or below reorder level</h2>
+
+            <p class="page-header__description">
+                This section shows current inventory
+                balances. It is not a historical stock
+                snapshot for the selected period.
+            </p>
+        </header>
+
+        <section class="card">
+            {% if report.low_stock_balances %}
+                <div class="table-wrapper">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th scope="col">
+                                    SKU
+                                </th>
+
+                                <th scope="col">
+                                    Product
+                                </th>
+
+                                <th scope="col">
+                                    Location
+                                </th>
+
+                                <th scope="col">
+                                    On hand
+                                </th>
+
+                                <th scope="col">
+                                    Reserved
+                                </th>
+
+                                <th scope="col">
+                                    Available
+                                </th>
+
+                                <th scope="col">
+                                    Reorder level
+                                </th>
+                            </tr>
+                        </thead>
+
+                        <tbody>
+                            {% for balance in report.low_stock_balances %}
+                                <tr>
+                                    <td>
+                                        <a
+                                            href="{% url 'inventory:detail' balance.inventory_item.pk %}"
+                                        >
+                                            {{ balance.inventory_item.product.sku }}
+                                        </a>
+                                    </td>
+
+                                    <td>
+                                        {{ balance.inventory_item.product.name }}
+                                    </td>
+
+                                    <td>
+                                        {{ balance.inventory_item.location.code }}
+                                        <br>
+                                        {{ balance.inventory_item.location.name }}
+                                    </td>
+
+                                    <td>
+                                        {{ balance.on_hand_quantity|floatformat:3 }}
+                                    </td>
+
+                                    <td>
+                                        {{ balance.reserved_quantity|floatformat:3 }}
+                                    </td>
+
+                                    <td>
+                                        {{ balance.available_quantity|floatformat:3 }}
+                                    </td>
+
+                                    <td>
+                                        {{ balance.inventory_item.reorder_level|floatformat:3 }}
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty-state">
+                    <h3>No current low-stock items</h3>
+
+                    <p>
+                        Every active inventory item is
+                        currently above its reorder level.
+                    </p>
+                </div>
+            {% endif %}
+        </section>
+    {% endif %}
+{% endblock %}

@@ -147,9 +147,12 @@
                     reorder conditions and consumption.
                 </p>
 
-                <p>
-                    Scheduled for Phase 15B.4.
-                </p>
+                <a
+                    class="button button--secondary"
+                    href="{% url 'reports:inventory_activity' %}{% if request.GET %}?{{ request.GET.urlencode }}{% endif %}"
+                >
+                    Open inventory activity report
+                </a>
             </article>
         {% endif %}
 
