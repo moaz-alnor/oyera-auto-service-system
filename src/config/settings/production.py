@@ -60,6 +60,77 @@ MEDIA_ROOT = Path(
 )
 
 
+# Production application logging.
+#
+# Logs are written to the process console so the deployment platform can
+# collect, retain, search, and alert on them without application-managed files.
+LOG_LEVEL = (
+    os.environ.get(
+        "DJANGO_LOG_LEVEL",
+        "INFO",
+    )
+    .strip()
+    .upper()
+)
+
+_ALLOWED_LOG_LEVELS = {
+    "DEBUG",
+    "INFO",
+    "WARNING",
+    "ERROR",
+    "CRITICAL",
+}
+
+if LOG_LEVEL not in _ALLOWED_LOG_LEVELS:
+    raise ValueError(
+        "DJANGO_LOG_LEVEL must be one of: DEBUG, INFO, WARNING, ERROR, CRITICAL."
+    )
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "production": {
+            "format": ("{asctime} {levelname} {name} {message}"),
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "production",
+            "level": LOG_LEVEL,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": LOG_LEVEL,
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "django.security": {
+            "handlers": ["console"],
+            "level": "WARNING",
+            "propagate": False,
+        },
+        "apps": {
+            "handlers": ["console"],
+            "level": LOG_LEVEL,
+            "propagate": False,
+        },
+    },
+}
+
+
 # HTTPS security settings.
 #
 # HSTS remains environment-controlled so that it can be introduced gradually
