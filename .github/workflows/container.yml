@@ -1,0 +1,59 @@
+name: Container Deployment Gate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: container-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build production container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate deployment scripts
+        run: |
+          bash -n \
+            scripts/container_start.sh \
+            deploy/postgres-init.sh
+
+      - name: Validate Caddy configuration
+        run: |
+          docker run \
+            --rm \
+            --env OYERA_DOMAIN=localhost \
+            --volume "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2-alpine \
+            caddy validate \
+              --config /etc/caddy/Caddyfile \
+              --adapter caddyfile
+
+      - name: Validate production Compose configuration
+        run: |
+          docker compose \
+            --env-file .env.production.example \
+            --file compose.production.yml \
+            config --quiet
+
+      - name: Build production image
+        run: |
+          docker build \
+            --tag oyera-auto-service:ci \
+            .
