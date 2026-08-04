@@ -3,7 +3,10 @@
 from django.contrib import admin
 from django.urls import include, path
 
+handler400 = "apps.core.errors.bad_request"
 handler403 = "apps.core.errors.permission_denied"
+handler404 = "apps.core.errors.page_not_found"
+handler500 = "apps.core.errors.server_error"
 
 urlpatterns = [
     path("admin/", admin.site.urls),

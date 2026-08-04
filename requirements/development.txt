@@ -1,5 +1,7 @@
--r base.txt
+-r production.txt
 
 pytest
 pytest-django
 ruff
+pip-audit>=2.10,<3
+bandit>=1.9,<2

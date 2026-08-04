@@ -1,0 +1,38 @@
+{% extends "layouts/public.html" %}
+
+{% block public_content %}
+    <section
+        class="card"
+        aria-labelledby="error-heading"
+    >
+        <header class="card__header">
+            <p class="page-header__eyebrow">
+                Error
+                {% block error_code %}
+                {% endblock %}
+            </p>
+
+            <h1
+                id="error-heading"
+                class="card__title"
+            >
+                {% block error_title %}
+                    Request error
+                {% endblock %}
+            </h1>
+
+            <p class="card__description">
+                {% block error_message %}
+                    The request could not be completed.
+                {% endblock %}
+            </p>
+        </header>
+
+        <a
+            class="button button--primary"
+            href="/"
+        >
+            Return to application
+        </a>
+    </section>
+{% endblock %}

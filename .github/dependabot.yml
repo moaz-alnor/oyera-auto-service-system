@@ -1,0 +1,22 @@
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Africa/Khartoum
+    open-pull-requests-limit: 5
+    target-branch: main
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:30"
+      timezone: Africa/Khartoum
+    open-pull-requests-limit: 5
+    target-branch: main

@@ -1,0 +1,18 @@
+{% extends "errors/base.html" %}
+
+{% block title %}
+    Invalid Request | Oyera Auto Service
+{% endblock %}
+
+{% block error_code %}
+    400
+{% endblock %}
+
+{% block error_title %}
+    Request could not be processed
+{% endblock %}
+
+{% block error_message %}
+    The request was invalid or could not be understood.
+    Please return to the application and try again.
+{% endblock %}
