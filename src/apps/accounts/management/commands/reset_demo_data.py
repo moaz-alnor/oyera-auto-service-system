@@ -540,6 +540,15 @@ class Command(BaseCommand):
                 email="cashier@example.com",
             )
 
+            _create_employee(
+                username="senior_technician",
+                password="SeniorTechDemo123!",
+                first_name="Demo",
+                last_name="Senior Technician",
+                role=RoleName.SENIOR_TECHNICIAN,
+                email="senior.technician@example.com",
+            )
+
             technician = _create_employee(
                 username="technician",
                 password="TechnicianDemo123!",
@@ -1187,6 +1196,9 @@ class Command(BaseCommand):
         self.stdout.write("  admin / AdminDemo123! — Django administrator")
         self.stdout.write("  manager / ManagerDemo123! — operational manager")
         self.stdout.write("  cashier / CashierDemo123! — cashier")
+        self.stdout.write(
+            "  senior_technician / SeniorTechDemo123! — senior technician"
+        )
         self.stdout.write("  technician / TechnicianDemo123! — technician")
         self.stdout.write("  receptionist / ReceptionDemo123! — receptionist")
 
