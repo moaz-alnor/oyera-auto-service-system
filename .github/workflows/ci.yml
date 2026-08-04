@@ -74,6 +74,9 @@ jobs:
       - name: Check Ruff formatting
         run: ruff format --check src tests gunicorn.conf.py
 
+      - name: Check database operation scripts
+        run: bash -n scripts/db_backup.sh scripts/db_restore.sh
+
       - name: Check migration drift
         run: |
           python src/manage.py makemigrations \
