@@ -1,0 +1,45 @@
+services:
+  - type: web
+    name: oyera-auto-service-system
+    runtime: python
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeployTrigger: checksPass
+    buildCommand: ./scripts/render_build.sh
+    startCommand: >-
+      gunicorn
+      --config gunicorn.conf.py
+      config.wsgi:application
+    healthCheckPath: /health/live/
+    envVars:
+      - key: DJANGO_SETTINGS_MODULE
+        value: config.settings.production
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: DJANGO_TRUST_X_FORWARDED_PROTO
+        value: "true"
+      - key: DJANGO_SECURE_HSTS_SECONDS
+        value: "0"
+      - key: DJANGO_SECURE_HSTS_INCLUDE_SUBDOMAINS
+        value: "false"
+      - key: DJANGO_SECURE_HSTS_PRELOAD
+        value: "false"
+      - key: DJANGO_LOG_LEVEL
+        value: INFO
+      - key: GUNICORN_WORKERS
+        value: "1"
+      - key: GUNICORN_THREADS
+        value: "2"
+      - key: USE_R2_STORAGE
+        value: "true"
+      - key: R2_BUCKET_NAME
+        sync: false
+      - key: R2_ENDPOINT_URL
+        sync: false
+      - key: R2_ACCESS_KEY_ID
+        sync: false
+      - key: R2_SECRET_ACCESS_KEY
+        sync: false
