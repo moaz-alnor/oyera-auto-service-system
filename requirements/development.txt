@@ -4,7 +4,7 @@ pytest
 pytest-django
 ruff
 pip-audit>=2.10,<3
-bandit>=1.9,<2
+bandit>=1.9.4,<2
 
 playwright<2,>=1.62
 Markdown<4,>=3.8
