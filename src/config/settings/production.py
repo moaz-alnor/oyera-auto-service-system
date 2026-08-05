@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+import dj_database_url
+
 from .base import *  # noqa: F403
 
 # Required values deliberately have no unsafe production defaults.
@@ -10,24 +12,56 @@ SECRET_KEY = os.environ["DJANGO_SECRET_KEY"]
 
 DEBUG = False
 
-ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.environ["DJANGO_ALLOWED_HOSTS"].split(",")
-    if host.strip()
+_allowed_host_values = [
+    os.environ.get("DJANGO_ALLOWED_HOSTS", ""),
+    os.environ.get("RENDER_EXTERNAL_HOSTNAME", ""),
 ]
 
+ALLOWED_HOSTS = [
+    host
+    for value in _allowed_host_values
+    for host in (item.strip() for item in value.split(","))
+    if host
+]
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ["POSTGRES_DB"],
-        "USER": os.environ["POSTGRES_USER"],
-        "PASSWORD": os.environ["POSTGRES_PASSWORD"],
-        "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
-        "CONN_MAX_AGE": 60,
-    },
-}
+if not ALLOWED_HOSTS:
+    raise RuntimeError(
+        "Set DJANGO_ALLOWED_HOSTS or RENDER_EXTERNAL_HOSTNAME in production."
+    )
+
+
+_database_url = os.environ.get(
+    "DATABASE_URL",
+    "",
+).strip()
+
+if _database_url:
+    DATABASES = {
+        "default": dj_database_url.parse(
+            _database_url,
+            conn_max_age=60,
+            conn_health_checks=True,
+        ),
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": os.environ["POSTGRES_DB"],
+            "USER": os.environ["POSTGRES_USER"],
+            "PASSWORD": os.environ["POSTGRES_PASSWORD"],
+            "HOST": os.environ.get(
+                "POSTGRES_HOST",
+                "localhost",
+            ),
+            "PORT": os.environ.get(
+                "POSTGRES_PORT",
+                "5432",
+            ),
+            "CONN_MAX_AGE": 60,
+            "CONN_HEALTH_CHECKS": True,
+        },
+    }
 
 
 # Production runtime and storage configuration.
@@ -44,6 +78,32 @@ STORAGES = {
         "BACKEND": ("whitenoise.storage.CompressedManifestStaticFilesStorage"),
     },
 }
+
+USE_R2_STORAGE = (
+    os.environ.get(
+        "USE_R2_STORAGE",
+        "false",
+    )
+    .strip()
+    .lower()
+    == "true"
+)
+
+if USE_R2_STORAGE:
+    STORAGES["default"] = {
+        "BACKEND": "storages.backends.s3.S3Storage",
+        "OPTIONS": {
+            "access_key": os.environ["R2_ACCESS_KEY_ID"],
+            "secret_key": os.environ["R2_SECRET_ACCESS_KEY"],
+            "bucket_name": os.environ["R2_BUCKET_NAME"],
+            "endpoint_url": os.environ["R2_ENDPOINT_URL"],
+            "region_name": "auto",
+            "location": "media",
+            "default_acl": None,
+            "file_overwrite": False,
+            "querystring_auth": True,
+        },
+    }
 
 STATIC_ROOT = Path(
     os.environ.get(
