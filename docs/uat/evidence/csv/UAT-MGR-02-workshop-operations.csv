@@ -1,0 +1,32 @@
+﻿Workshop operations report
+Report start,2026-08-01
+Report end,2026-08-05
+
+Summary,Value
+Vehicles received,5
+Urgent job cards,0
+Cancelled job cards,0
+Work orders created,5
+Work orders started,2
+Work orders completed,2
+Vehicles released,0
+Payment-override releases,0
+
+Vehicle intake
+Job number,Customer,Vehicle,Arrival,Priority,Status
+JOB-000005,Demo Workshop Customer,UAT 505E,2026-08-05 09:13:04,Normal,Open
+JOB-000004,Demo Workshop Customer,UAT 404D,2026-08-05 09:13:03,Normal,Open
+JOB-000003,Demo Workshop Customer,UAT 303C,2026-08-05 09:13:03,Normal,Open
+JOB-000002,Demo Workshop Customer,UAT 202B,2026-08-05 09:13:03,Normal,Open
+JOB-000001,Demo Workshop Customer,UAT 101A,2026-08-05 09:13:03,Normal,Open
+
+Work-order activity
+Work order,Job number,Vehicle,Created,Started,Completed,Status
+WO-000005,JOB-000005,UAT 505E,2026-08-05 09:13:04,2026-08-05 09:13:04,2026-08-05 09:13:04,Completed
+WO-000004,JOB-000004,UAT 404D,2026-08-05 09:13:03,2026-08-05 09:13:03,2026-08-05 09:13:03,Completed
+WO-000003,JOB-000003,UAT 303C,2026-08-05 09:13:03,,,Ready for work
+WO-000002,JOB-000002,UAT 202B,2026-08-05 09:13:03,,,Ready for work
+WO-000001,JOB-000001,UAT 101A,2026-08-05 09:13:03,,,Planned
+
+Vehicle releases
+Release number,Job number,Vehicle,Released,Received by,Invoice,Currency,Outstanding,Payment override
