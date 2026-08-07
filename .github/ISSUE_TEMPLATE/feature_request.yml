@@ -1,0 +1,47 @@
+name: Feature request
+description: Propose an improvement to an OYERA workflow.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Operational problem
+      description: Describe the business or user problem before proposing a solution.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Primary affected role
+      options:
+        - Administrator
+        - Manager
+        - Receptionist
+        - Senior Technician
+        - Technician
+        - Cashier
+        - Multiple roles
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Data, permission, security or deployment impact
