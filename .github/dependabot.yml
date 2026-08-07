@@ -10,6 +10,10 @@ updates:
       timezone: Africa/Khartoum
     open-pull-requests-limit: 5
     target-branch: main
+    ignore:
+      - dependency-name: django
+        update-types:
+          - version-update:semver-major
 
   - package-ecosystem: github-actions
     directory: "/"
