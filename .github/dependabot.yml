@@ -20,3 +20,13 @@ updates:
       timezone: Africa/Khartoum
     open-pull-requests-limit: 5
     target-branch: main
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "07:00"
+      timezone: Africa/Khartoum
+    open-pull-requests-limit: 5
+    target-branch: main

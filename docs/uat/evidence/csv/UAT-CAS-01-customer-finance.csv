@@ -1,0 +1,18 @@
+﻿Customer finance report
+Report start,2026-08-01
+Report end,2026-08-05
+Currency,UGX
+
+Summary,Value
+Issued invoices,2
+Invoice total,160000.00
+Posted payments,80000.00
+Outstanding balance,80000.00
+Paid invoices,1
+Partially paid invoices,0
+Overdue invoices,0
+Voided invoices,0
+
+Invoice number,Customer,Vehicle,Issued at,Due date,Status,Overdue,Currency,Total,Paid,Outstanding
+INV-000005,Demo Workshop Customer,UAT 505E,2026-08-05 09:14:14,2026-08-19,Issued,No,UGX,80000.00,0.00,80000.00
+INV-000004,Demo Workshop Customer,UAT 404D,2026-08-05 09:14:13,2026-08-19,Paid,No,UGX,80000.00,80000.00,0.00

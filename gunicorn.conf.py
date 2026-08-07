@@ -3,7 +3,11 @@
 import os
 from pathlib import Path
 
-bind = os.environ.get("GUNICORN_BIND", "0.0.0.0:8000")
+_port = os.environ.get("PORT", "8000")
+bind = os.environ.get(
+    "GUNICORN_BIND",
+    f"0.0.0.0:{_port}",
+)
 chdir = str(Path(__file__).resolve().parent / "src")
 
 worker_class = "gthread"
